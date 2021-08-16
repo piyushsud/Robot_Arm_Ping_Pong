@@ -1,0 +1,25 @@
+# After that, use this link
+# https://machinelearningmastery.com/how-to-perform-object-detection-with-yolov3-in-keras/
+# https://github.com/experiencor/keras-yolo3
+#
+# for yolo object detection
+
+# problem: how to know when to start/change trajectory estimation? e.g during serve ball is thrown up, then hit, but only want to estimate
+# trajectory after hit
+#
+# solution 1 : always estimate trajectory. significant change in trajectory = paddle or table hit ball, restart trajectory estimation
+#
+# solution 2: listen to sound of ball hitting paddle, when hear sound, start trajectory estimation
+#
+# solution 3: detect paddle, when in contact start trajectory estimation
+#
+# solution 4: detect motion using pixel subtraction between subsequent frames. Use that to find location of ball. When
+# ball velocity is to the left at a certain speed or greater, start trajectory estimation
+#
+# solution 4 is probably the best?
+
+how to find ball position given blurred ball?
+
+8 direction: up, up and to the right, right, down and to the right, down, down and to the left, left, up and to the left
+use center of bbox to find direction
+what about if blur changes? general direction should still be similar
