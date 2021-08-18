@@ -1,22 +1,23 @@
 import numpy as np
 import cv2
-from datetime import datetime
-from inverse_kinematics import InverseKinematics
+from inverseKinematics import InverseKinematics
 from ballDetector import BallDetector
 from frameConverter import FrameConverter
 from publisher import MqttPublisher
 import pyrealsense2 as rs
+import time
+from trajectoryCalculator import TrajectoryCalculator
 
-IMAGE_WIDTH = 1280
-IMAGE_HEIGHT = 720
+IMAGE_WIDTH = 640
+IMAGE_HEIGHT = 480
 N_CHANNELS = 3
 MOTION_THRESHOLD = 100
 MAX_INTENSITY = 255
 BALL_DEST_X_POSITION = 2 # in meters
 TRAJECTORY_N_FRAMES = 4
-MIN_VEL_TRAJECTORY_EST_LEFT = -10 # in pixels/frame in the horizontal direction
+MIN_VEL = 10 # in pixels/frame in the horizontal direction
 
-# robot is on the left, player is on the right
+# robot is on the right, player is on the left
 
 class PingPongPipeline:
 
@@ -25,6 +26,7 @@ class PingPongPipeline:
         self.ballDetector = BallDetector()
         self.frameConverter = FrameConverter()
         self.publisher = MqttPublisher()
+        self.trajectoryCalculator = TrajectoryCalculator()
 
         self.pipeline = rs.pipeline()
 
@@ -58,25 +60,24 @@ class PingPongPipeline:
         self.profile = self.pipeline.start(config)
 
     def go_to_ball(self):
-        prev_color_img = None
         # previous_bbox_center = (0, 0)  # in pixels
         # previous_ball_precise_location = (0, 0)  # in pixels
         # previous_ball_precise_location_world_frame = (0, 0, 0)  # (x, y, z) in meters
-        # trajectory_frame_count = 0
         # final_ball_dest_estimate = (0, 0, 0)  # (x, y, z) in meters
-        # ball_dest_estimates = []
+        prev_color_img = None
         prev_time = None
-
+        prev_bbox_center = None
+        trajectory_frame_count = 0
+        prev_x_world = None
+        prev_y_world = None
+        prev_z_world = None
+        ball_dest_estimates = []
+        dest_x_avg = None
+        dest_y_avg = None
+        dest_z_avg = None
 
         # Getting the depth sensor's depth scale (see rs-align example for explanation)
         depth_sensor = self.profile.get_device().first_depth_sensor()
-        depth_scale = depth_sensor.get_depth_scale()
-        # print("Depth Scale is: ", depth_scale)
-
-        # We will be removing the background of objects more than
-        #  clipping_distance_in_meters meters away
-        clipping_distance_in_meters = 1  # 1 meter
-        clipping_distance = clipping_distance_in_meters / depth_scale
 
         # Create an align object
         # rs.align allows us to perform alignment of depth frames to others frames
@@ -118,38 +119,55 @@ class PingPongPipeline:
                     frameDelta = cv2.absdiff(prev_gray_img, gray_image)
                     motion_img = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
-                contours, hierarchy = cv2.findContours(motion_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-                for contour in contours:
-                    x, y, w, h = cv2.boundingRect(contour)
-                    ball_detected, ball_bounding_box = self.ballDetector.find_ball_bbox(color_image[y:y+h, x:x+w], x, y)
-                    if ball_detected:
-                        if ball_horizontal_velocity < MIN_VEL_TRAJECTORY_EST_LEFT and trajectory_frame_count < TRAJECTORY_N_FRAMES:
-                            ball_precise_location = find_ball_precise_location(previous_bbox_center, ball_bounding_box)
-                            ball_precise_location_world_frame = pixel_to_world_frame(left_img, depth_img, ball_precise_location)
-                            curr_time = datetime.now()
-                            ball_dest_at_x = calculate_trajectory(ball_precise_location_world_frame, previous_ball_precise_location_world_frame, curr_time - prev_time)
-                            ball_dest_estimates.append(ball_dest_at_x)
-                            trajectory_frame_count += 1
-                        if trajectory_frame_count == TRAJECTORY_N_FRAMES:
-                            x_sum = 0
-                            y_sum = 0
-                            z_sum = 0
+                    contours, hierarchy = cv2.findContours(motion_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                    for contour in contours:
+                        x, y, w, h = cv2.boundingRect(contour)
+                        ball_detected, ball_bounding_box = self.ballDetector.find_ball_bbox(color_image[y:y+h, x:x+w], x, y)
+                        if ball_detected:
+                            # find coordinates of center of ball
+                            r = int(y + h/2)
+                            c = int(x + w/2)
+                            bbox_center = (r, c)
 
-                            for estimate in ball_dest_estimates:
-                                x_sum += estimate[0]
-                                y_sum += estimate[1]
-                                z_sum += estimate[2]
+                            if prev_bbox_center is not None:
+                                # velocity in units of pixels per frame
+                                ball_horizontal_velocity = bbox_center[1] - prev_bbox_center[1]
+                                if ball_horizontal_velocity > MIN_VEL and trajectory_frame_count < TRAJECTORY_N_FRAMES:
+                                    x, y, z = self.frameConverter.image_to_camera_frame(depth_image, r, c)
+                                    x_world, y_world, z_world = self.frameConverter.camera_to_world_frame(x, y, z)
 
-                            x_avg = x_sum / TRAJECTORY_N_FRAMES
-                            y_avg = y_sum / TRAJECTORY_N_FRAMES
-                            z_avg = z_sum / TRAJECTORY_N_FRAMES
-                            final_ball_dest_estimate = (x_avg, y_avg, z_avg)
-                            break
+                                    curr_time = time.time()
+                                    ball_dest_at_x = \
+                                        self.trajectoryCalculator.calculate_trajectory(x_world, y_world, z_world,
+                                                                                       prev_x_world, prev_y_world,
+                                                                                       prev_z_world, curr_time - prev_time)
+                                    ball_dest_estimates.append(ball_dest_at_x)
+                                    trajectory_frame_count += 1
+                                if trajectory_frame_count == TRAJECTORY_N_FRAMES:
+                                    x_sum = 0
+                                    y_sum = 0
+                                    z_sum = 0
+
+                                    for estimate in ball_dest_estimates:
+                                        x_sum += estimate[0]
+                                        y_sum += estimate[1]
+                                        z_sum += estimate[2]
+
+                                    dest_x_avg = x_sum / TRAJECTORY_N_FRAMES
+                                    dest_y_avg = y_sum / TRAJECTORY_N_FRAMES
+                                    dest_z_avg = z_sum / TRAJECTORY_N_FRAMES
+                                    break
                 else:
                     continue
                 break
-            angles = inverse_kinematics(final_ball_dest_estimate)
-            send_mqtt(angles)
+            target_reachable, angles = self.invKin.analytical_inverse_kinematics(dest_x_avg, dest_y_avg, dest_z_avg, 0)
+            if target_reachable:
+                self.publisher.publish_angles(angles)
+            else:
+                print("target not reachable")
+
+        finally:
+            self.pipeline.stop()
 
 if __name__ == "__main__":
     pipeline = PingPongPipeline()

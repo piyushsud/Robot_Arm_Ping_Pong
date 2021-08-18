@@ -94,21 +94,15 @@ class InverseKinematics:
         thetas = [theta1, theta2, theta3, theta4, theta5]
 
         T = np.round(mr.FKinSpace(M, np.transpose(S), thetas), 4)
-        print(T)
 
         x_calc = T[0, 3]
         y_calc = T[1, 3]
         z_calc = T[2, 3]
 
-        target_not_reachable = False
+        target_reachable = True
 
         if x_calc < 0.12 or z_calc < 0.1:
-            target_not_reachable = False
-            print("bounded by hardstop")
-
-        if abs(x - xtarget) > TOLERANCE or abs(y - ytarget) > TOLERANCE or abs(z - ztarget) > TOLERANCE:
-            target_not_reachable = True
-            print("bounded by kinematics")
+            target_reachable = False
 
         joint_1_angle = -(thetas[0] * 180 / PI) * (30 / 60) + ZERO_OFFSET_JOINT1
         joint_2_angle = (thetas[1] * 180 / PI) * (87 / 40) + ZERO_OFFSET_JOINT2
@@ -116,9 +110,9 @@ class InverseKinematics:
         joint_4_angle = -(thetas[3] * 180 / PI) + ZERO_OFFSET_JOINT4
         joint_5_angle = (thetas[4] * 180 / PI) + ZERO_OFFSET_JOINT5
 
-        return target_not_reachable, joint_1_angle, joint_2_angle, joint_3_angle, joint_4_angle, joint_5_angle
+        angles = np.array([joint_1_angle, joint_2_angle, joint_3_angle,joint_4_angle, joint_5_angle])
 
-
+        return target_reachable, angles
 
 if __name__ == "__main__":
     ikin = InverseKinematics()

@@ -15,23 +15,20 @@ class BallDetector:
 
         layer_names = self.net.getLayerNames()
         self.outputlayers = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
-
         self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
-
-        # loading image
-        font = cv2.FONT_HERSHEY_PLAIN
-        starting_time = time.time()
         self.frame_id = 0
 
-    def find_ball_bbox(self, image, x, y):
+    def find_ball_bbox(self, image, x_top_left, y_top_left):
 
         frame = image
         self.frame_id += 1
 
         height, width, channels = frame.shape
-        # detecting objects
+
+        # preprocess image
         blob = cv2.dnn.blobFromImage(frame, 0.00392, (96, 96), (0, 0, 0), True, crop=False)
 
+        # network forward pass
         self.net.setInput(blob)
         outs = self.net.forward(self.outputlayers)
         # print(outs[1])
@@ -64,23 +61,32 @@ class BallDetector:
 
         indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
 
+        xmax = None
+        ymax = None
+        wmax = None
+        hmax = None
+        max_confidence = 0
+
         for i in range(len(boxes)):
             if i in indexes:
                 x, y, w, h = boxes[i]
                 label = str(self.classes[class_ids[i]])
                 confidence = confidences[i]
-                color = self.colors[class_ids[i]]
-                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-                cv2.putText(frame, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
+                if confidence > max_confidence:
+                    xmax = x
+                    ymax = y
+                    wmax = w
+                    hmax = h
 
-        elapsed_time = time.time() - self.starting_time
 
+        # convert cropped image bounding box coordinates to whole image bounding box coordinates
+        img_x = x_top_left + xmax
+        img_y = y_top_left + ymax
 
-        cv2.imshow("Image", frame)
-        key = cv2.waitKey(1)  # wait 1ms the loop will start again and we will process the next frame
-
-        if key == 27:  # esc key stops the process
-            break;
+        if xmax is None:  # if no bounding boxes were detected
+            return False, img_x, img_y, wmax, hmax
+        else:
+            return True, img_x, img_y, wmax, hmax
 
 if __name__ == '__main__':
     # try:
