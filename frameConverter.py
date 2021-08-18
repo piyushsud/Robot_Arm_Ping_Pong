@@ -1,12 +1,12 @@
-IMG_HEIGHT = 720
-IMG_WIDTH = 1280
-FX = 500  # focal length in x-direction in pixels
-FY = 500  # focal length in y-direction in pixels
-CX = 300  # optical center x-coordinate in pixels
-CY = 300  # optical center y-coordinate in pixels
-DX = 10   # x displacement between camera and world frame, in terms of world frame
-DY = 10   # y displacement between camera and world frame, in terms of world frame
-DZ = 0    # z displacement between camera and world frame, in terms of world frame
+import numpy as np
+
+IMG_HEIGHT = 480
+IMG_WIDTH = 640
+FX = 605.00622559  # focal length in x-direction in pixels
+FY = 604.44366455  # focal length in y-direction in pixels
+CX = 315.97814941  # optical center x-coordinate in pixels
+CY = 246.10261536  # optical center y-coordinate in pixels
+
 
 class FrameConverter:
     def __init__(self):
@@ -22,14 +22,10 @@ class FrameConverter:
     # see conventions.txt for frame orientations
     def camera_to_world_frame(self, x, y, z):
 
-        # rotation
-        xWorld = -x
-        yWorld = -z
-        zWorld = -y
+        #todo: find T
+        T = np.zeros((4, 3))
 
-        # translation
-        xWorld += DX
-        yWorld += DY
-        zWorld += DZ
+        camera_pt = np.array([x, y, z])
+        world_pt = np.matmul(T, camera_pt)
 
-        return xWorld, yWorld, zWorld
+        return world_pt[0], world_pt[1], world_pt[2]

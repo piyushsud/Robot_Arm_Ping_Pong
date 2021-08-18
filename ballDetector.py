@@ -1,100 +1,86 @@
-import tensorflow as tf
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-if len(physical_devices) > 0:
-    tf.config.experimental.set_memory_growth(physical_devices[0], True)
-from absl import app, flags, logging
-from absl.flags import FLAGS
-from tensorflow.python.saved_model import tag_constants
-from PIL import Image
 import cv2
 import numpy as np
 import time
-import sys
-sys.path.append("./tensorflow-yolov4-tflite")
-import core.utils
-from core.yolov4 import filter_boxes
-from tensorflow.compat.v1 import ConfigProto
-from tensorflow.compat.v1 import InteractiveSession
-
-flags.DEFINE_string('framework', 'tf', '(tf, tflite, trt')
-flags.DEFINE_string('weights', 'C:/Users/piyus/GrabCAD/Robot_Arm/code/tensorflow-yolov4-tflite/checkpoints/yolov4-tiny-96',
-                    'path to weights file')
-flags.DEFINE_integer('size', 96, 'resize images to')
-flags.DEFINE_boolean('tiny', True, 'yolo or yolo-tiny')
-flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
-flags.DEFINE_string('image', './data/kite.jpg', 'path to input image')
-flags.DEFINE_string('output', 'result.png', 'path to output image')
-flags.DEFINE_float('iou', 0.45, 'iou threshold')
-flags.DEFINE_float('score', 0.25, 'score threshold')
+import pyrealsense2 as rs
 
 class BallDetector:
 
     def __init__(self):
-        pass
+        self.net = cv2.dnn.readNet(
+            "C:/Users/piyus/Robot_Arm_Ping_Pong/darknet-master/build/darknet/x64/backup/yolov4-tiny-ping-pong_final.weights",
+            "C:/Users/piyus/Robot_Arm_Ping_Pong/darknet-master/build/darknet/x64/cfg/yolov4-tiny-ping-pong.cfg")
+        self.classes = []
+        with open("C:/Users/piyus/Robot_Arm_Ping_Pong/darknet-master/build/darknet/x64/data/ping_pong.names", "r") as f:
+            self.classes = [line.strip() for line in f.readlines()]
 
-    def find_ball_bbox(self, image):
-        config = ConfigProto()
-        config.gpu_options.allow_growth = True
-        session = InteractiveSession(config=config)
-        STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
-        input_size = FLAGS.size
+        layer_names = self.net.getLayerNames()
+        self.outputlayers = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
 
-        original_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
 
-        # image_data = utils.image_preprocess(np.copy(original_image), [input_size, input_size])
-        image_data = cv2.resize(original_image, (input_size, input_size))
-        image_data = image_data / 255.
-        # image_data = image_data[np.newaxis, ...].astype(np.float32)
+        # loading image
+        font = cv2.FONT_HERSHEY_PLAIN
+        starting_time = time.time()
+        self.frame_id = 0
 
-        images_data = []
-        for i in range(1):
-            images_data.append(image_data)
-        images_data = np.asarray(images_data).astype(np.float32)
+    def find_ball_bbox(self, image, x, y):
 
-        if FLAGS.framework == 'tflite':
-            interpreter = tf.lite.Interpreter(model_path=FLAGS.weights)
-            interpreter.allocate_tensors()
-            input_details = interpreter.get_input_details()
-            output_details = interpreter.get_output_details()
-            print(input_details)
-            print(output_details)
-            interpreter.set_tensor(input_details[0]['index'], images_data)
-            interpreter.invoke()
-            pred = [interpreter.get_tensor(output_details[i]['index']) for i in range(len(output_details))]
-            if FLAGS.model == 'yolov3' and FLAGS.tiny == True:
-                boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25,
-                                                input_shape=tf.constant([input_size, input_size]))
-            else:
-                boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25,
-                                                input_shape=tf.constant([input_size, input_size]))
-        else:
-            saved_model_loaded = tf.saved_model.load(FLAGS.weights, tags=[tag_constants.SERVING])
-            infer = saved_model_loaded.signatures['serving_default']
-            batch_data = tf.constant(images_data)
-            pred_bbox = infer(batch_data)
-            for key, value in pred_bbox.items():
-                boxes = value[:, :, 0:4]
-                pred_conf = value[:, :, 4:]
+        frame = image
+        self.frame_id += 1
 
-        initial_time = time.time()
-        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-            boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
-            scores=tf.reshape(
-                pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
-            max_output_size_per_class=50,
-            max_total_size=50,
-            iou_threshold=FLAGS.iou,
-            score_threshold=FLAGS.score
-        )
-        time_elapsed = time.time() - initial_time
-        print(time_elapsed)
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
-        image = utils.draw_bbox(original_image, pred_bbox)
-        # image = utils.draw_bbox(image_data*255, pred_bbox)
-        image = Image.fromarray(image.astype(np.uint8))
-        image.show()
-        image = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2RGB)
-        cv2.imwrite(FLAGS.output, image)
+        height, width, channels = frame.shape
+        # detecting objects
+        blob = cv2.dnn.blobFromImage(frame, 0.00392, (96, 96), (0, 0, 0), True, crop=False)
+
+        self.net.setInput(blob)
+        outs = self.net.forward(self.outputlayers)
+        # print(outs[1])
+
+        # Showing info on screen/ get confidence score of algorithm in detecting an object in blob
+        class_ids = []
+        confidences = []
+        boxes = []
+        for out in outs:
+            for detection in out:
+                scores = detection[5:]
+                class_id = np.argmax(scores)
+                confidence = scores[class_id]
+                if confidence > 0.3:
+                    # onject detected
+                    center_x = int(detection[0] * width)
+                    center_y = int(detection[1] * height)
+                    w = int(detection[2] * width)
+                    h = int(detection[3] * height)
+
+                    # cv2.circle(img,(center_x,center_y),10,(0,255,0),2)
+                    # rectangle co-ordinaters
+                    x = int(center_x - w / 2)
+                    y = int(center_y - h / 2)
+
+                    boxes.append([x, y, w, h])  # put all rectangle areas
+                    confidences.append(
+                        float(confidence))  # how confidence was that object detected and show that percentage
+                    class_ids.append(class_id)  # name of the object tha was detected
+
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
+
+        for i in range(len(boxes)):
+            if i in indexes:
+                x, y, w, h = boxes[i]
+                label = str(self.classes[class_ids[i]])
+                confidence = confidences[i]
+                color = self.colors[class_ids[i]]
+                cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+                cv2.putText(frame, label + " " + str(round(confidence, 2)), (x, y + 30), font, 1, (255, 255, 255), 2)
+
+        elapsed_time = time.time() - self.starting_time
+
+
+        cv2.imshow("Image", frame)
+        key = cv2.waitKey(1)  # wait 1ms the loop will start again and we will process the next frame
+
+        if key == 27:  # esc key stops the process
+            break;
 
 if __name__ == '__main__':
     # try:
