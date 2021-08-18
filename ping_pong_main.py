@@ -65,6 +65,7 @@ class PingPongPipeline:
         # previous_ball_precise_location_world_frame = (0, 0, 0)  # (x, y, z) in meters
         # final_ball_dest_estimate = (0, 0, 0)  # (x, y, z) in meters
         prev_color_img = None
+        prev_gray_img = None
         prev_time = None
         prev_bbox_center = None
         trajectory_frame_count = 0
@@ -75,7 +76,7 @@ class PingPongPipeline:
         dest_x_avg = None
         dest_y_avg = None
         dest_z_avg = None
-
+        done = False
         # Getting the depth sensor's depth scale (see rs-align example for explanation)
         depth_sensor = self.profile.get_device().first_depth_sensor()
 
@@ -115,18 +116,20 @@ class PingPongPipeline:
                 gray_image = cv2.GaussianBlur(gray_image, (21, 21), 0)
 
                 if prev_color_img is not None:
-                    prev_gray_img = cv2.cvtColor(prev_color_img, cv2.COLOR_BGR2GRAY)
                     frameDelta = cv2.absdiff(prev_gray_img, gray_image)
                     motion_img = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
+                    cv2.imshow("motion image", motion_img)
+                    cv2.waitKey(1)
                     contours, hierarchy = cv2.findContours(motion_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                     for contour in contours:
+                        print("contour detected!!")
                         x, y, w, h = cv2.boundingRect(contour)
-                        ball_detected, ball_bounding_box = self.ballDetector.find_ball_bbox(color_image[y:y+h, x:x+w], x, y)
+                        ball_detected, xBox, yBox, wBox, hBox = self.ballDetector.find_ball_bbox(color_image[y:y+h, x:x+w], x, y)
                         if ball_detected:
                             # find coordinates of center of ball
-                            r = int(y + h/2)
-                            c = int(x + w/2)
+                            r = int(yBox + hBox/2)
+                            c = int(xBox + wBox/2)
                             bbox_center = (r, c)
 
                             if prev_bbox_center is not None:
@@ -156,13 +159,24 @@ class PingPongPipeline:
                                     dest_x_avg = x_sum / TRAJECTORY_N_FRAMES
                                     dest_y_avg = y_sum / TRAJECTORY_N_FRAMES
                                     dest_z_avg = z_sum / TRAJECTORY_N_FRAMES
+
+                                    done = True
                                     break
-                else:
-                    continue
-                break
-            target_reachable, angles = self.invKin.analytical_inverse_kinematics(dest_x_avg, dest_y_avg, dest_z_avg, 0)
+
+                            prev_bbox_center = bbox_center
+
+                    if done is True:
+                        break
+
+                prev_color_img = color_image
+                prev_gray_img = gray_image
+
+            x_robot, y_robot, z_robot = self.frameConverter.world_to_robot_frame(dest_x_avg, dest_y_avg, dest_z_avg)
+            target_reachable, angles = self.invKin.analytical_inverse_kinematics(x_robot, y_robot, z_robot, 0)
+            print(x_robot, y_robot, z_robot)
             if target_reachable:
-                self.publisher.publish_angles(angles)
+                # self.publisher.publish_angles(angles)
+                print("target reachable")
             else:
                 print("target not reachable")
 

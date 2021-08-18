@@ -13,9 +13,9 @@ l7 = 0.1483
 l6 = 0.061087  # horizontal length of end effector
 l8 = 0.0404  # vertical length of end effector
 
-ZERO_OFFSET_JOINT1 = 50
-ZERO_OFFSET_JOINT2 = 155
-ZERO_OFFSET_JOINT3 = 5
+ZERO_OFFSET_JOINT1 = 79.8
+ZERO_OFFSET_JOINT2 = 174
+ZERO_OFFSET_JOINT3 = 14
 ZERO_OFFSET_JOINT4 = 110
 ZERO_OFFSET_JOINT5 = 190  # 123 is horizontal
 
@@ -109,6 +109,9 @@ class InverseKinematics:
         joint_3_angle = (thetas[2] * 180 / PI) * (73 / 60) + ZERO_OFFSET_JOINT3
         joint_4_angle = -(thetas[3] * 180 / PI) + ZERO_OFFSET_JOINT4
         joint_5_angle = (thetas[4] * 180 / PI) + ZERO_OFFSET_JOINT5
+
+        if joint_5_angle < 0 or joint_5_angle > 180:
+            target_reachable = False
 
         angles = np.array([joint_1_angle, joint_2_angle, joint_3_angle,joint_4_angle, joint_5_angle])
 

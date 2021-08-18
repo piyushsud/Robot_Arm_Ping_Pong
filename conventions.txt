@@ -1,2 +1,3 @@
 Camera frame: positive x is to the right, positive y is down, positive z is forward
-Robot/world frame: positive x is to the left, positive y is backwards, positive z is up
+World frame: positive x is to the right, positive y is forwards, positive z is up
+Robot frame: positive x is to the left, positive y is backwards, positive z is up

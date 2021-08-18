@@ -9,7 +9,7 @@ def get_chessboard(columns, rows, show=False):
     chessboard's columns and rows. ``show`` determines whether the frames
     are shown while the cameras search for a chessboard.
     """
-    frames_stereo = cv2.imread('C:/Users/piyus/GrabCAD/Robot_Arm_Gripper/code/camera_pnp/checkerboard.jpg')
+    frames_stereo = cv2.imread('C:/Users/piyus/Robot_Arm_Ping_Pong/misc/checkerboard_img.jpg')
     img_gray = cv2.cvtColor(frames_stereo, cv2.COLOR_BGR2GRAY)
     frame = img_gray
     if show:

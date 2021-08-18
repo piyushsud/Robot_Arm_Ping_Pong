@@ -28,7 +28,7 @@ class TrajectoryCalculator:
         # velocity vector projected on x-y plane
         proj_vel_vector = (np.dot(velocity_vector, x_unit) * x_unit + np.dot(velocity_vector, y_unit) * y_unit)[0:2]
 
-        # line in direction of proj_vel_vector through the (x,y) of ball_precise_location_world_frame
+        # line in direction of proj_vel_vector through the (x,y) of the ball
         # parametrization of line:
         # x = ball_precise_location_world_frame[0] + proj_vel_vector[0]*s
         # y = ball_precise_location_world_frame[1] + proj_vel_vector[1]*s

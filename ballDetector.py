@@ -78,14 +78,12 @@ class BallDetector:
                     wmax = w
                     hmax = h
 
-
-        # convert cropped image bounding box coordinates to whole image bounding box coordinates
-        img_x = x_top_left + xmax
-        img_y = y_top_left + ymax
-
         if xmax is None:  # if no bounding boxes were detected
-            return False, img_x, img_y, wmax, hmax
+            return False, None, None, None, None
         else:
+            # convert cropped image bounding box coordinates to whole image bounding box coordinates
+            img_x = x_top_left + xmax
+            img_y = y_top_left + ymax
             return True, img_x, img_y, wmax, hmax
 
 if __name__ == '__main__':
