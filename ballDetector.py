@@ -18,9 +18,8 @@ class BallDetector:
         self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
         self.frame_id = 0
 
-    def find_ball_bbox(self, image, x_top_left, y_top_left):
+    def find_ball_bbox(self, frame, depth_image, x_top_left, y_top_left):
 
-        frame = image
         self.frame_id += 1
 
         height, width, channels = frame.shape
@@ -70,9 +69,16 @@ class BallDetector:
         for i in range(len(boxes)):
             if i in indexes:
                 x, y, w, h = boxes[i]
+                center_x_box = int(x + w/2)
+                center_y_box = int(y + h/2)
+                depth = depth_image[center_y_box, center_x_box]/1000  # depth in meters
                 label = str(self.classes[class_ids[i]])
                 confidence = confidences[i]
-                if confidence > max_confidence:
+                # cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                # frame = cv2.resize(frame, (288, 288))
+                # cv2.imshow("frame", frame)
+                # cv2.waitKey(0)
+                if confidence > max_confidence and 0.61 < depth < 1.67:
                     xmax = x
                     ymax = y
                     wmax = w
@@ -81,9 +87,13 @@ class BallDetector:
         if xmax is None:  # if no bounding boxes were detected
             return False, None, None, None, None
         else:
+            #todo: check if bounding box is correct in ping_pong_main now that we passed on the correct values to this function
+
             # convert cropped image bounding box coordinates to whole image bounding box coordinates
             img_x = x_top_left + xmax
             img_y = y_top_left + ymax
+            print(x_top_left, y_top_left)
+            print(xmax, ymax)
             return True, img_x, img_y, wmax, hmax
 
 if __name__ == '__main__':

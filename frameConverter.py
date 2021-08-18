@@ -20,7 +20,7 @@ class FrameConverter:
         pass
 
     def image_to_camera_frame(self, depth_img, r, c):
-        depth = depth_img[c, r]
+        depth = depth_img[c, r]/1000
         x = (c - CX)*depth/FX
         y = (r - CY)*depth/FY
         z = depth
@@ -29,7 +29,7 @@ class FrameConverter:
     # see conventions.txt for frame orientations
     def camera_to_world_frame(self, x, y, z):
 
-        camera_pt = np.array([x, y, z])
+        camera_pt = np.array([x, y, z, 1])
         world_pt = np.matmul(Tcw, camera_pt)
 
         return world_pt[0], world_pt[1], world_pt[2]

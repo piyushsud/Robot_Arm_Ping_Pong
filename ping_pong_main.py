@@ -10,12 +10,14 @@ from trajectoryCalculator import TrajectoryCalculator
 
 IMAGE_WIDTH = 640
 IMAGE_HEIGHT = 480
+FPS = 30
 N_CHANNELS = 3
 MOTION_THRESHOLD = 100
 MAX_INTENSITY = 255
 BALL_DEST_X_POSITION = 2 # in meters
 TRAJECTORY_N_FRAMES = 4
 MIN_VEL = 10 # in pixels/frame in the horizontal direction
+NEURAL_NETWORK_IMAGE_SIZE = 96
 
 # robot is on the right, player is on the left
 
@@ -49,12 +51,12 @@ class PingPongPipeline:
             print("The demo requires Depth camera with Color sensor")
             exit(0)
 
-        config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
+        config.enable_stream(rs.stream.depth, IMAGE_WIDTH, IMAGE_HEIGHT, rs.format.z16, FPS)
 
         if device_product_line == 'L500':
-            config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, FPS)
         else:
-            config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+            config.enable_stream(rs.stream.color, IMAGE_WIDTH, IMAGE_HEIGHT, rs.format.bgr8, FPS)
 
         # Start streaming
         self.profile = self.pipeline.start(config)
@@ -111,7 +113,7 @@ class PingPongPipeline:
 
                 depth_image = np.asanyarray(aligned_depth_frame.get_data())
                 color_image = np.asanyarray(color_frame.get_data())
-
+                display_image = color_image
                 gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
                 gray_image = cv2.GaussianBlur(gray_image, (21, 21), 0)
 
@@ -119,18 +121,38 @@ class PingPongPipeline:
                     frameDelta = cv2.absdiff(prev_gray_img, gray_image)
                     motion_img = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
-                    cv2.imshow("motion image", motion_img)
-                    cv2.waitKey(1)
                     contours, hierarchy = cv2.findContours(motion_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                     for contour in contours:
-                        print("contour detected!!")
                         x, y, w, h = cv2.boundingRect(contour)
-                        ball_detected, xBox, yBox, wBox, hBox = self.ballDetector.find_ball_bbox(color_image[y:y+h, x:x+w], x, y)
+                        center_x = int(x + w/2)
+                        center_y = int(y + h/2)
+                        left_x = int(center_x - NEURAL_NETWORK_IMAGE_SIZE/2)
+                        right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE/2)
+                        up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE / 2)
+                        down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE / 2)
+                        if left_x < 0:
+                            left_x = 0
+                            right_x = 96
+                        if up_y < 0:
+                            up_y = 0
+                            down_y = 96
+                        if right_x > IMAGE_WIDTH:
+                            left_x = IMAGE_WIDTH - 96
+                            right_x = IMAGE_WIDTH
+                        if down_y > IMAGE_HEIGHT:
+                            up_y = IMAGE_HEIGHT - 96
+                            down_y = IMAGE_HEIGHT
+                        cropped_color_image = color_image[up_y:down_y, left_x:right_x]
+                        cropped_depth_image = depth_image[up_y:down_y, left_x:right_x]
+                        ball_detected, xBox, yBox, wBox, hBox = self.ballDetector.find_ball_bbox(cropped_color_image,
+                                                                                                 cropped_depth_image, left_x, up_y)
                         if ball_detected:
+                            print("ball detected!!")
                             # find coordinates of center of ball
                             r = int(yBox + hBox/2)
                             c = int(xBox + wBox/2)
                             bbox_center = (r, c)
+                            # print(bbox_center)
 
                             if prev_bbox_center is not None:
                                 # velocity in units of pixels per frame
@@ -146,6 +168,7 @@ class PingPongPipeline:
                                                                                        prev_z_world, curr_time - prev_time)
                                     ball_dest_estimates.append(ball_dest_at_x)
                                     trajectory_frame_count += 1
+                                    prev_time = curr_time
                                 if trajectory_frame_count == TRAJECTORY_N_FRAMES:
                                     x_sum = 0
                                     y_sum = 0
@@ -164,6 +187,10 @@ class PingPongPipeline:
                                     break
 
                             prev_bbox_center = bbox_center
+                            # display_image = cv2.rectangle(display_image, (xBox, yBox), (xBox + wBox, yBox + hBox), color=(255, 0, 0), thickness=4)
+                            # print(xBox, yBox)
+                            # cv2.imshow("image", display_image)
+                            # cv2.waitKey(0)
 
                     if done is True:
                         break
