@@ -131,18 +131,18 @@ class PingPongPipeline:
                         right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE)
                         up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE)
                         down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE)
-                        # if left_x < 0:
-                        #     left_x = 0
-                        #     right_x = NEURAL_NETWORK_IMAGE_SIZE
-                        # if up_y < 0:
-                        #     up_y = 0
-                        #     down_y = NEURAL_NETWORK_IMAGE_SIZE
-                        # if right_x > IMAGE_WIDTH:
-                        #     left_x = IMAGE_WIDTH - NEURAL_NETWORK_IMAGE_SIZE
-                        #     right_x = IMAGE_WIDTH
-                        # if down_y > IMAGE_HEIGHT:
-                        #     up_y = IMAGE_HEIGHT - NEURAL_NETWORK_IMAGE_SIZE
-                        #     down_y = IMAGE_HEIGHT
+                        if left_x < 0:
+                            left_x = 0
+                            right_x = NEURAL_NETWORK_IMAGE_SIZE*2
+                        if up_y < 0:
+                            up_y = 0
+                            down_y = NEURAL_NETWORK_IMAGE_SIZE*2
+                        if right_x > IMAGE_WIDTH:
+                            left_x = IMAGE_WIDTH - NEURAL_NETWORK_IMAGE_SIZE*2
+                            right_x = IMAGE_WIDTH
+                        if down_y > IMAGE_HEIGHT:
+                            up_y = IMAGE_HEIGHT - NEURAL_NETWORK_IMAGE_SIZE*2
+                            down_y = IMAGE_HEIGHT
                         # cropped_color_image = color_image[up_y:down_y, left_x:right_x]
                         # cropped_depth_image = depth_image[up_y:down_y, left_x:right_x]
                         print(up_y, down_y, left_x, right_x)
