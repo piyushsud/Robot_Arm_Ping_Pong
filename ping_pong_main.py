@@ -88,6 +88,7 @@ class PingPongPipeline:
         align_to = rs.stream.color
         align = rs.align(align_to)
         i = 0
+        j = 0
         # Streaming loop
         try:
             while True:
@@ -128,69 +129,80 @@ class PingPongPipeline:
                         center_y = int(y + h/2)
                         left_x = int(center_x - NEURAL_NETWORK_IMAGE_SIZE/2)
                         right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE/2)
-                        up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE / 2)
-                        down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE / 2)
-                        if left_x < 0:
-                            left_x = 0
-                            right_x = 96
-                        if up_y < 0:
-                            up_y = 0
-                            down_y = 96
-                        if right_x > IMAGE_WIDTH:
-                            left_x = IMAGE_WIDTH - 96
-                            right_x = IMAGE_WIDTH
-                        if down_y > IMAGE_HEIGHT:
-                            up_y = IMAGE_HEIGHT - 96
-                            down_y = IMAGE_HEIGHT
+                        up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE/2)
+                        down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE/2)
+                        # if left_x < 0:
+                        #     left_x = 0
+                        #     right_x = NEURAL_NETWORK_IMAGE_SIZE
+                        # if up_y < 0:
+                        #     up_y = 0
+                        #     down_y = NEURAL_NETWORK_IMAGE_SIZE
+                        # if right_x > IMAGE_WIDTH:
+                        #     left_x = IMAGE_WIDTH - NEURAL_NETWORK_IMAGE_SIZE
+                        #     right_x = IMAGE_WIDTH
+                        # if down_y > IMAGE_HEIGHT:
+                        #     up_y = IMAGE_HEIGHT - NEURAL_NETWORK_IMAGE_SIZE
+                        #     down_y = IMAGE_HEIGHT
+                        # cropped_color_image = color_image[up_y:down_y, left_x:right_x]
+                        # cropped_depth_image = depth_image[up_y:down_y, left_x:right_x]
+                        print(up_y, down_y, left_x, right_x)
                         cropped_color_image = color_image[up_y:down_y, left_x:right_x]
-                        cropped_depth_image = depth_image[up_y:down_y, left_x:right_x]
-                        ball_detected, xBox, yBox, wBox, hBox = self.ballDetector.find_ball_bbox(cropped_color_image,
-                                                                                                 cropped_depth_image, left_x, up_y)
+
+                        cropped_color_image_copy = cropped_color_image.copy()
+                        #resize to (NEURAL_NETWORK_IMAGE_SIZE, NEURAL_NETWORK_IMAGE_SIZE)
+                        # cropped_color_image_copy = cv2.resize(cropped_color_image_copy, (NEURAL_NETWORK_IMAGE_SIZE, NEURAL_NETWORK_IMAGE_SIZE))
+                        # cropped_depth_image = cv2.resize(cropped_depth_image, (NEURAL_NETWORK_IMAGE_SIZE, NEURAL_NETWORK_IMAGE_SIZE))
+                        print("contour detected")
+                        cv2.imwrite("img" + str(j) + ".jpg", cropped_color_image_copy)
+                        j += 1
+                        # ball_detected, xBox, yBox, wBox, hBox = self.ballDetector.find_ball_bbox(cropped_color_image_copy,
+                        #                                                                          cropped_depth_image, left_x, up_y)
+                        ball_detected = False
+                        #todo: figure out why it works in ballDetector but not ping_pong_main!
                         if ball_detected:
                             print("ball detected!!")
-                            # find coordinates of center of ball
-                            r = int(yBox + hBox/2)
-                            c = int(xBox + wBox/2)
-                            bbox_center = (r, c)
-                            # print(bbox_center)
-
-                            if prev_bbox_center is not None:
-                                # velocity in units of pixels per frame
-                                ball_horizontal_velocity = bbox_center[1] - prev_bbox_center[1]
-                                if ball_horizontal_velocity > MIN_VEL and trajectory_frame_count < TRAJECTORY_N_FRAMES:
-                                    x, y, z = self.frameConverter.image_to_camera_frame(depth_image, r, c)
-                                    x_world, y_world, z_world = self.frameConverter.camera_to_world_frame(x, y, z)
-
-                                    curr_time = time.time()
-                                    ball_dest_at_x = \
-                                        self.trajectoryCalculator.calculate_trajectory(x_world, y_world, z_world,
-                                                                                       prev_x_world, prev_y_world,
-                                                                                       prev_z_world, curr_time - prev_time)
-                                    ball_dest_estimates.append(ball_dest_at_x)
-                                    trajectory_frame_count += 1
-                                    prev_time = curr_time
-                                if trajectory_frame_count == TRAJECTORY_N_FRAMES:
-                                    x_sum = 0
-                                    y_sum = 0
-                                    z_sum = 0
-
-                                    for estimate in ball_dest_estimates:
-                                        x_sum += estimate[0]
-                                        y_sum += estimate[1]
-                                        z_sum += estimate[2]
-
-                                    dest_x_avg = x_sum / TRAJECTORY_N_FRAMES
-                                    dest_y_avg = y_sum / TRAJECTORY_N_FRAMES
-                                    dest_z_avg = z_sum / TRAJECTORY_N_FRAMES
-
-                                    done = True
-                                    break
-
-                            prev_bbox_center = bbox_center
-                            # display_image = cv2.rectangle(display_image, (xBox, yBox), (xBox + wBox, yBox + hBox), color=(255, 0, 0), thickness=4)
-                            # print(xBox, yBox)
+                            # display_image = cv2.rectangle(display_image, (xBox, yBox), (xBox + wBox, yBox + hBox),
+                            #                               color=(255, 0, 0), thickness=4)
                             # cv2.imshow("image", display_image)
                             # cv2.waitKey(0)
+                            # # find coordinates of center of ball
+                            # r = int(yBox + hBox/2)
+                            # c = int(xBox + wBox/2)
+                            # bbox_center = (r, c)
+                            # # print(bbox_center)
+                            #
+                            # if prev_bbox_center is not None:
+                            #     # velocity in units of pixels per frame
+                            #     ball_horizontal_velocity = bbox_center[1] - prev_bbox_center[1]
+                            #     if ball_horizontal_velocity > MIN_VEL and trajectory_frame_count < TRAJECTORY_N_FRAMES:
+                            #         x, y, z = self.frameConverter.image_to_camera_frame(depth_image, r, c)
+                            #         x_world, y_world, z_world = self.frameConverter.camera_to_world_frame(x, y, z)
+                            #
+                            #         curr_time = time.time()
+                            #         ball_dest_at_x = \
+                            #             self.trajectoryCalculator.calculate_trajectory(x_world, y_world, z_world,
+                            #                                                            prev_x_world, prev_y_world,
+                            #                                                            prev_z_world, curr_time - prev_time)
+                            #         ball_dest_estimates.append(ball_dest_at_x)
+                            #         trajectory_frame_count += 1
+                            #         prev_time = curr_time
+                            #     if trajectory_frame_count == TRAJECTORY_N_FRAMES:
+                            #         x_sum = 0
+                            #         y_sum = 0
+                            #         z_sum = 0
+                            #
+                            #         for estimate in ball_dest_estimates:
+                            #             x_sum += estimate[0]
+                            #             y_sum += estimate[1]
+                            #             z_sum += estimate[2]
+                            #
+                            #         dest_x_avg = x_sum / TRAJECTORY_N_FRAMES
+                            #         dest_y_avg = y_sum / TRAJECTORY_N_FRAMES
+                            #         dest_z_avg = z_sum / TRAJECTORY_N_FRAMES
+                            #
+                            #         done = True
+                            #         break
+                            # prev_bbox_center = bbox_center
 
                     if done is True:
                         break
