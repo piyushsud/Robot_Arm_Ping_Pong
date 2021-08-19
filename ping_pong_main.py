@@ -127,10 +127,10 @@ class PingPongPipeline:
                         x, y, w, h = cv2.boundingRect(contour)
                         center_x = int(x + w/2)
                         center_y = int(y + h/2)
-                        left_x = int(center_x - NEURAL_NETWORK_IMAGE_SIZE/2)
-                        right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE/2)
-                        up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE/2)
-                        down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE/2)
+                        left_x = int(center_x - NEURAL_NETWORK_IMAGE_SIZE)
+                        right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE)
+                        up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE)
+                        down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE)
                         # if left_x < 0:
                         #     left_x = 0
                         #     right_x = NEURAL_NETWORK_IMAGE_SIZE
