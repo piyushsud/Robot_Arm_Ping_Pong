@@ -9,9 +9,10 @@ def get_chessboard(columns, rows, show=False):
     chessboard's columns and rows. ``show`` determines whether the frames
     are shown while the cameras search for a chessboard.
     """
-    frames_stereo = cv2.imread('C:/Users/piyus/Robot_Arm_Ping_Pong/misc/checkerboard_img.jpg')
+    frames_stereo = cv2.imread('/misc/checkerboard_image_camera2.jpg')
     img_gray = cv2.cvtColor(frames_stereo, cv2.COLOR_BGR2GRAY)
-    frame = img_gray
+    img = img_gray[380:450, 313:413]
+    frame = cv2.resize(img, (img.shape[1]*3, img.shape[0]*3))
     if show:
         cv2.imshow("img", frame)
     found_chessboard, found_corners = cv2.findChessboardCorners(frame, (columns, rows), flags=cv2.CALIB_CB_FAST_CHECK +

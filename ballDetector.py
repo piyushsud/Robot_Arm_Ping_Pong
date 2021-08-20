@@ -18,8 +18,7 @@ class BallDetector:
         self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
         self.frame_id = 0
 
-    def find_ball_bbox(self, color_image, depth_image, x_top_left, y_top_left):
-
+    def find_ball_bbox(self, color_image, x_top_left, y_top_left):
         frame = color_image.copy()
         self.frame_id += 1
 
@@ -42,7 +41,7 @@ class BallDetector:
                 scores = detection[5:]
                 class_id = np.argmax(scores)
                 confidence = scores[class_id]
-                if confidence > 0.7:
+                if confidence > 0.3:
                     # onject detected
                     center_x = int(detection[0] * width)
                     center_y = int(detection[1] * height)
@@ -65,35 +64,26 @@ class BallDetector:
         ymax = None
         wmax = None
         hmax = None
+        max_confidence = 0
 
         for i in range(len(boxes)):
             if i in indexes:
                 x, y, w, h = boxes[i]
-                center_x_box = int(x + w/2)
-                center_y_box = int(y + h/2)
-                depth = depth_image[center_y_box, center_x_box]/1000  # depth in meters
-                label = str(self.classes[class_ids[i]])
                 confidence = confidences[i]
-                if 0.61 < depth < 1.67:
-                    print(depth, confidence)
+                if confidence > max_confidence:
                     xmax = x
                     ymax = y
                     wmax = w
                     hmax = h
-                    # cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                    # frame = cv2.resize(frame, (288, 288))
-                    # cv2.imshow("frame", frame)
-                    # cv2.waitKey(0)
-
+                    max_confidence = confidence
 
         if xmax is None:  # if no bounding boxes were detected
-            return False, None, None, None, None
+            return False, None, None, None, None, None
         else:
             # convert cropped image bounding box coordinates to whole image bounding box coordinates
             img_x = x_top_left + xmax
             img_y = y_top_left + ymax
-            # print("ball detected in method")
-            return True, img_x, img_y, wmax, hmax
+            return True, img_x, img_y, wmax, hmax, max_confidence
 
 if __name__ == '__main__':
     # try:
