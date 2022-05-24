@@ -71,23 +71,24 @@ class PingPongPipeline:
         self.profile = self.pipeline.start(config)
 
     def go_to_ball(self):
-        # previous_bbox_center = (0, 0)  # in pixels
-        # previous_ball_precise_location = (0, 0)  # in pixels
-        # previous_ball_precise_location_world_frame = (0, 0, 0)  # (x, y, z) in meters
-        # final_ball_dest_estimate = (0, 0, 0)  # (x, y, z) in meters
+        # previous information used for motion tracking
+        previous_ball_precise_location = (0, 0)  # in pixels
+        previous_ball_precise_location_world_frame = (0, 0, 0)  # (x, y, z) in meters
         prev_gray_img = None
         prev_gray_img_cam2 = None
         prev_time = None
         prev_bbox_center = None
-        trajectory_frame_count = 0
         prev_x_world = None
         prev_y_world = None
         prev_z_world = None
+
+        trajectory_frame_count = 0
         ball_dest_estimates = []
         dest_x_avg = None
         dest_y_avg = None
         dest_z_avg = None
         done = False
+        final_ball_dest_estimate = (0, 0, 0)  # (x, y, z) in meters
 
         i = 0
         # Streaming loop

@@ -91,5 +91,9 @@ if __name__ == '__main__':
     # except SystemExit:
     #     pass
     ballDetector = BallDetector()
-    image = cv2.imread("C:/Users/piyus/GrabCAD/Robot_Arm/yolo_formatted_data/valid_image_folder/img0.jpg")
-    ballDetector.find_ball_bbox(image)
+    for i in range(50):
+        image = cv2.imread("C:/Users/piyus/GrabCAD/Robot_Arm/yolo_formatted_data/valid_image_folder/img0.jpg")
+        found, x, y, w, h, conf = ballDetector.find_ball_bbox(image, 0, 0)
+    cv2.rectangle(image, (x, y), (x+w, y+h), (255, 0, 0), 1)
+    cv2.imshow("image with bounding box", cv2.resize(image, (96*4, 96*4)))
+    cv2.waitKey()

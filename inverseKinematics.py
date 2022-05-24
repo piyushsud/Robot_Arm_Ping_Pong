@@ -14,7 +14,7 @@ l6 = 0.061087  # horizontal length of end effector
 l8 = 0.0404  # vertical length of end effector
 
 ZERO_OFFSET_JOINT1 = 79.8
-ZERO_OFFSET_JOINT2 = 174
+ZERO_OFFSET_JOINT2 = 150
 ZERO_OFFSET_JOINT3 = 14
 ZERO_OFFSET_JOINT4 = 110
 ZERO_OFFSET_JOINT5 = 190  # 123 is horizontal
@@ -40,8 +40,8 @@ class InverseKinematics:
 
     def __init__(self):
         pass
-# yaw is the angle from the positive x axis
 
+    # yaw is the angle from the positive x-axis
     def analytical_inverse_kinematics(self, x, y, z, yaw):
         xc = x - l6 * np.cos(yaw)
         yc = y - l6 * np.sin(yaw)

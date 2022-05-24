@@ -36,10 +36,11 @@ prev_img_shape = None
 # in a given directory. Since no path is
 # specified, it will take current directory
 # jpg files alone
-images = glob.glob('C:/Users/piyus/GrabCAD/Robot_Arm_Gripper/code/camera_pnp/checkerboard.jpg')
+images = glob.glob('C:/Users/piyus/Robot_Arm_Ping_Pong/misc/realsense_checkerboard_img2.png')
 
 for filename in images:
 	image = cv2.imread(filename)
+	#image = cv2.resize(image, (image.shape[0]*4, image.shape[1]*4))
 	grayColor = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 	# Find the chess board corners
@@ -70,6 +71,8 @@ for filename in images:
 		image = cv2.drawChessboardCorners(image,
 										CHECKERBOARD,
 										corners2, ret)
+		#print(image.shape)
+		#resized_image = cv2.resize(image, (image.shape[0]*3, image.shape[1]*3))
 
 	cv2.imshow('img', image)
 	cv2.waitKey(0)
