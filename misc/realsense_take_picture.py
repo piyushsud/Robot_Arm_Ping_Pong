@@ -8,6 +8,9 @@
 import pyrealsense2 as rs
 import numpy as np
 import cv2
+import time
+
+TOLERANCE = 0.05
 
 # Configure depth and color streams
 pipeline = rs.pipeline()
@@ -22,7 +25,7 @@ pipeline = rs.pipeline()
 #     [0, 0, 1]
 # ])
 #
-# print(camera_matrix)
+# print(intr.model, intr.coeffs)
 
 config = rs.config()
 
@@ -55,6 +58,10 @@ pipeline.start(config)
 # intr = profile.as_video_stream_profile().get_intrinsics()  # Downcast to video_stream_profile and fetch intrinsics
 # print(intr.ppx)
 
+start_time = time.time()
+picture_number = 0
+busy = False
+
 try:
     i = 0
     while True:
@@ -71,13 +78,32 @@ try:
         color_image = np.asanyarray(color_frame.get_data())
         i += 1
 
+        # curr_time = time.time()
+        # print(curr_time - start_time)
+        #
+        # if busy is False:
+        #     if abs(curr_time - start_time - 1) < TOLERANCE:
+        #         busy = True
+        #         print(picture_number)
+        #         cv2.imwrite(
+        #             "C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/realsense_images/checkerboard_" +
+        #             str(picture_number) + ".png", color_image)
+        #         picture_number += 1
+        #         start_time = curr_time
+        #
+        # if curr_time - start_time > TOLERANCE:
+        #     busy = False
 
-
-        if i == 10:
-            cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/checkerboard_1.png", color_image)
+        if i == 50:
+            cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/realsense_images/checkerboard_upright.png",
+                        color_image)
             break
-        #cv2.imshow('RealSense', color_image)
-        #cv2.waitKey(1)
+        cv2.imshow("img", color_image)
+        # the 'q' button is set as the
+        # quitting button you may use any
+        # desired button of your choice
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 finally:
 
