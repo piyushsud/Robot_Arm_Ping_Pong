@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from inverseKinematics import InverseKinematics
+from blobDetector import BlobDetector
 from ballDetector import BallDetector
 from frameConverter import FrameConverter
 from publisher import MqttPublisher
@@ -8,11 +9,13 @@ import pyrealsense2 as rs
 import time
 from trajectoryCalculator import TrajectoryCalculator
 import matplotlib.pyplot as plt
+import time
 
-# todo: add functionality to read from both cameras simultaneously
+test_path = "C:/Users/piyus/Robot_Arm_Ping_Pong/misc/test_pics/"
 
-IMAGE_WIDTH = 640
-IMAGE_HEIGHT = 480
+BLACK_CAMERA_IMAGE_DIM = (480, 640)
+REALSENSE_IMAGE_DIM = (480, 640)
+
 FPS = 30
 N_CHANNELS = 3
 MOTION_THRESHOLD = 100
@@ -27,55 +30,29 @@ NEURAL_NETWORK_IMAGE_SIZE = 96
 class PingPongPipeline:
 
     def __init__(self):
+        # print("starting init function")
         self.invKin = InverseKinematics()
         self.ballDetector = BallDetector()
         self.frameConverter = FrameConverter()
         self.publisher = MqttPublisher()
         self.trajectoryCalculator = TrajectoryCalculator()
 
-        # camera 2
-        self.cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+        # black camera
+        self.black_cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+        self.black_cam.set(cv2.CAP_PROP_FRAME_WIDTH, BLACK_CAMERA_IMAGE_DIM[1]*2)
+        self.black_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, BLACK_CAMERA_IMAGE_DIM[0])
 
-        self.cam.set(cv2.CAP_PROP_FRAME_WIDTH, IMAGE_WIDTH*2)
-        self.cam.set(cv2.CAP_PROP_FRAME_HEIGHT, IMAGE_HEIGHT)
-
-        self.pipeline = rs.pipeline()
-
-        # Create a config and configure the pipeline to stream
-        #  different resolutions of color and depth streams
-        config = rs.config()
-
-        # Get device product line for setting a supporting resolution
-        pipeline_wrapper = rs.pipeline_wrapper(self.pipeline)
-        pipeline_profile = config.resolve(pipeline_wrapper)
-        device = pipeline_profile.get_device()
-        device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-        found_rgb = False
-        for s in device.sensors:
-            if s.get_info(rs.camera_info.name) == 'RGB Camera':
-                found_rgb = True
-                break
-        if not found_rgb:
-            print("The demo requires Depth camera with Color sensor")
-            exit(0)
-
-        config.enable_stream(rs.stream.depth, IMAGE_WIDTH, IMAGE_HEIGHT, rs.format.z16, FPS)
-
-        if device_product_line == 'L500':
-            config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, FPS)
-        else:
-            config.enable_stream(rs.stream.color, IMAGE_WIDTH, IMAGE_HEIGHT, rs.format.bgr8, FPS)
-
-        # Start streaming
-        self.profile = self.pipeline.start(config)
+        # intel realsense
+        self.realsense = cv2.VideoCapture(3, cv2.CAP_DSHOW)
+        self.realsense.set(cv2.CAP_PROP_FRAME_WIDTH, REALSENSE_IMAGE_DIM[1])
+        self.realsense.set(cv2.CAP_PROP_FRAME_HEIGHT, REALSENSE_IMAGE_DIM[0])
 
     def go_to_ball(self):
         # previous information used for motion tracking
         previous_ball_precise_location = (0, 0)  # in pixels
         previous_ball_precise_location_world_frame = (0, 0, 0)  # (x, y, z) in meters
-        prev_gray_img = None
-        prev_gray_img_cam2 = None
+        prev_gray_img_realsense = None
+        prev_gray_img_black_camera = None
         prev_time = None
         prev_bbox_center = None
         prev_x_world = None
@@ -91,41 +68,70 @@ class PingPongPipeline:
         final_ball_dest_estimate = (0, 0, 0)  # (x, y, z) in meters
 
         i = 0
+
         # Streaming loop
         try:
             while True:
-                print("inside loop")
-                ret, frame = self.cam.read()
-                color_image_cam2 = frame[:, 0:640, :]
-                gray_image_cam2 = cv2.cvtColor(color_image_cam2, cv2.COLOR_BGR2GRAY)
+                # print(str(i))
 
-                # Get frameset of color
-                frames = self.pipeline.wait_for_frames()
+                # get black camera frame
+                ret_black, black_camera_frame = self.black_cam.read()
+
+                # get realsense frame
+                ret_realsense, color_image_realsense = self.realsense.read()
+
+                # get left image from stereo pair of black camera and convert to grayscale
+                color_image_black_camera = black_camera_frame[:, 0:640, :]
+                gray_image_black_camera = cv2.cvtColor(color_image_black_camera, cv2.COLOR_BGR2GRAY)
+
+                # convert realsense color image to grayscale
+                gray_image_realsense = cv2.cvtColor(color_image_realsense, cv2.COLOR_BGR2GRAY)
+
+                # # display camera feeds
+                # cv2.imshow("black camera img", gray_image_black_camera)
+                # cv2.imshow("realsense img", gray_image_realsense)
+                #
+                # # the 'q' button is set as the
+                # # quitting button
+                # if cv2.waitKey(1) & 0xFF == ord('q'):
+                #     break
+
+                # increment loop counter
+                i += 1
 
                 # takes a bit for the exposure to stabilize
                 if i < 20:
-                    i += 1
                     continue
 
-                color_frame = frames.get_color_frame()
+                if prev_gray_img_realsense is not None:
+                    ball_detected, xBox, yBox, wBox, hBox = self.find_ball(prev_gray_img_realsense,
+                                                                           gray_image_realsense,
+                                                                           color_image_realsense)
 
-                # Validate that the frame is valid
-                if not color_frame:
-                    continue
+                    ball_detected_2, xBox2, yBox2, wBox2, hBox2 = self.find_ball(prev_gray_img_black_camera,
+                                                                                gray_image_black_camera,
+                                                                                color_image_black_camera)
 
-                color_image = np.asanyarray(color_frame.get_data())
-                gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
-                gray_image = cv2.GaussianBlur(gray_image, (21, 21), 0)
-
-                if prev_gray_img is not None:
-                    ball_detected, xBox, yBox, wBox, hBox = self.find_ball(prev_gray_img, gray_image, color_image)
-                    ball_detected_2, xBox2, yBox2, wBox2, hBox2 = self.find_ball(prev_gray_img_cam2, gray_image_cam2, color_image_cam2)
                     if ball_detected:
                         print("ball detected in camera 1")
+                        bbox_image_realsense = cv2.rectangle(color_image_realsense, (xBox, yBox), (xBox + wBox, yBox + hBox),
+                                                   (255, 0, 0), 2)
+                        cv2.imshow("bbox image realsense", bbox_image_realsense)
+                    else:
+                        cv2.imshow("bbox image realsense", color_image_realsense)
+
                     if ball_detected_2:
                         print("ball detected in camera 2")
-                    if ball_detected and ball_detected_2:
-                        print("ball detected in both cameras")
+                        bbox_image_black_camera = cv2.rectangle(color_image_black_camera, (xBox2, yBox2), (xBox2 + wBox2, yBox2 + hBox2),
+                                                  (255, 0, 0), 2)
+                        cv2.imshow("bbox image black camera", bbox_image_black_camera)
+                    else:
+                        cv2.imshow("bbox image black camera", color_image_black_camera)
+
+                    cv2.waitKey(1)
+
+                    # if ball_detected and ball_detected_2:
+                    #    print("ball detected in both cameras")
                             # display_image = cv2.rectangle(display_image, (xBox, yBox), (xBox + wBox, yBox + hBox),
                             #                               color=(255, 0, 0), thickness=4)
                             # cv2.imshow("image", display_image)
@@ -173,8 +179,8 @@ class PingPongPipeline:
                     # if done is True:
                     #     break
 
-                prev_gray_img = gray_image
-                prev_gray_img_cam2 = gray_image_cam2
+                prev_gray_img_realsense = gray_image_realsense
+                prev_gray_img_black_camera = gray_image_black_camera
 
             x_robot, y_robot, z_robot = self.frameConverter.world_to_robot_frame(dest_x_avg, dest_y_avg, dest_z_avg)
             target_reachable, angles = self.invKin.analytical_inverse_kinematics(x_robot, y_robot, z_robot, 0)
@@ -186,51 +192,94 @@ class PingPongPipeline:
                 print("target not reachable")
 
         finally:
-            self.pipeline.stop()
+            print("done")
+            # self.pipeline.stop()
 
     def find_ball(self, prev_img_gray, curr_img_gray, curr_img_color):
+
+        # print("finding ball")
+
+        img_height = curr_img_color.shape[0]
+        img_width = curr_img_color.shape[1]
+        # print("finding ball")
+        #
+        # prev_img_gray = cv2.GaussianBlur(prev_img_gray, (11, 11), 0)
+        # curr_img_gray = cv2.GaussianBlur(curr_img_gray, (11, 11), 0)
+
+        # use difference between frames for motion tracking
         frameDelta = cv2.absdiff(prev_img_gray, curr_img_gray)
         motion_img = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 
+        # remove salt and pepper noise
+        motion_img = cv2.medianBlur(motion_img, 17)
+
+        # print(curr_img_color.dtype)
+
+        masked_image = np.zeros(curr_img_color.shape, dtype=np.uint8)
+
         contours, hierarchy = cv2.findContours(motion_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # _, _, _, _, _, _ = self.ballDetector.find_ball_bbox(curr_img_color, 0, 0)
+
         max_confidence = 0
         xmax = None
         ymax = None
         wmax = None
         hmax = None
+
+        best_left_x = best_right_x = best_up_y = best_down_y = 0
+        # print("number of contours: " + str(len(contours)))
         for contour in contours:
-            print("contour detected")
+            # print("contour detected")
             x, y, w, h = cv2.boundingRect(contour)
             center_x = int(x + w / 2)
             center_y = int(y + h / 2)
 
-            left_x = int(center_x - NEURAL_NETWORK_IMAGE_SIZE)
-            right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE)
-            up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE)
-            down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE)
+            left_x = int(center_x - NEURAL_NETWORK_IMAGE_SIZE*2)
+            right_x = int(center_x + NEURAL_NETWORK_IMAGE_SIZE*2)
+            up_y = int(center_y - NEURAL_NETWORK_IMAGE_SIZE*2)
+            down_y = int(center_y + NEURAL_NETWORK_IMAGE_SIZE*2)
 
             if left_x < 0:
                 left_x = 0
-                right_x = NEURAL_NETWORK_IMAGE_SIZE * 2
+                right_x = NEURAL_NETWORK_IMAGE_SIZE * 4
             if up_y < 0:
                 up_y = 0
-                down_y = NEURAL_NETWORK_IMAGE_SIZE * 2
-            if right_x > IMAGE_WIDTH:
-                left_x = IMAGE_WIDTH - NEURAL_NETWORK_IMAGE_SIZE * 2
-                right_x = IMAGE_WIDTH
-            if down_y > IMAGE_HEIGHT:
-                up_y = IMAGE_HEIGHT - NEURAL_NETWORK_IMAGE_SIZE * 2
-                down_y = IMAGE_HEIGHT
+                down_y = NEURAL_NETWORK_IMAGE_SIZE * 4
+            if right_x > img_width:
+                left_x = img_width - NEURAL_NETWORK_IMAGE_SIZE * 4
+                right_x = img_width
+            if down_y > img_height:
+                up_y = img_height - NEURAL_NETWORK_IMAGE_SIZE * 4
+                down_y = img_height
 
             cropped_color_image = curr_img_color[up_y:down_y, left_x:right_x]
 
+            # input image to this function is 384 x 384
             ball_detected, xBox, yBox, wBox, hBox, confidence = self.ballDetector.find_ball_bbox(cropped_color_image, left_x, up_y)
+
             if ball_detected:
                 if confidence > max_confidence:
                     xmax = xBox
                     ymax = yBox
                     wmax = wBox
                     hmax = hBox
+                    max_confidence = confidence
+                    # best_left_x = left_x
+                    # best_right_x = right_x
+                    # best_up_y = up_y
+                    # best_down_y = down_y
+
+
+        # if max_confidence > 0:
+        #     masked_image[best_up_y:best_down_y, best_left_x:best_right_x] = curr_img_color[best_up_y:best_down_y, best_left_x:best_right_x]
+        #     bbox_image = cv2.rectangle(masked_image, (xmax, ymax), (xmax + wmax, ymax + hmax), (255, 0, 0), 2)
+        #     # print(xmax, wmax, ymax, hmax, max_confidence)
+        # #     cv2.imshow("masked motion img", masked_image)
+        # #     cv2.waitKey(1000)
+        # # else:
+        #     # cv2.imshow("masked motion img", masked_image)
+        #     # cv2.waitKey(1)
 
         if xmax is None:  # if no bounding boxes were detected
             return False, None, None, None, None

@@ -1,21 +1,19 @@
 import cv2
 import time
+import matplotlib.pyplot as plt
 
 TOLERANCE = 0.05
 
-cam = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cam = cv2.VideoCapture(3, cv2.CAP_DSHOW)
 
-#cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-#cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+cam.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 im_path_left = 'C:/Users/piyus/Robot_Arm_Ping_Pong/'
 # im_path_right = '/Robot_Arm/stereo_sbgm_test_pictures/right/'
 
 start_time = time.time()
-picture_number = 163
+picture_number = 0
 busy = False
 
 while True:
@@ -27,16 +25,15 @@ while True:
 
     # print(frame.shape)
     curr_time = time.time()
-    print(curr_time - start_time)
+    # print(curr_time - start_time)
 
     if busy is False:
         if abs(curr_time - start_time - 1) < TOLERANCE:
             busy = True
-            print(picture_number)
-            cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/black_camera_images/left/checkerboard_" +
-                str(picture_number) + ".png", frame[:, 0:1280, :])
-            cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/black_camera_images/right/checkerboard_" +
-                str(picture_number) + ".png", frame[:, 1280:2560, :])
+            # cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/black_camera_images/left/checkerboard_" +
+            #     str(picture_number) + ".png", frame[:, 0:1280, :])
+            # cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/black_camera_images/right/checkerboard_" +
+            #     str(picture_number) + ".png", frame[:, 1280:2560, :])
             picture_number += 1
             start_time = curr_time
 

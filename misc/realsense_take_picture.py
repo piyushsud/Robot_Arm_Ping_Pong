@@ -94,10 +94,10 @@ try:
         # if curr_time - start_time > TOLERANCE:
         #     busy = False
 
-        if i == 50:
-            cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/realsense_images/checkerboard_upright.png",
-                        color_image)
-            break
+        # if i == 50:
+        #     cv2.imwrite("C:/Users/piyus/Robot_Arm_Ping_Pong/camera_calibration/realsense_images/checkerboard_upright.png",
+        #                 color_image)
+        #     break
         cv2.imshow("img", color_image)
         # the 'q' button is set as the
         # quitting button you may use any

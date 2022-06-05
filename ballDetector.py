@@ -1,7 +1,12 @@
+# this NN is not robust to different lighting conditions, resolutions, and backgrounds.
+
 import cv2
 import numpy as np
 import time
 import pyrealsense2 as rs
+
+CONFIDENCE_THRESH = 0.05
+NMS_THRESH = 0.4
 
 class BallDetector:
 
@@ -14,7 +19,7 @@ class BallDetector:
             self.classes = [line.strip() for line in f.readlines()]
 
         layer_names = self.net.getLayerNames()
-        self.outputlayers = [layer_names[i[0] - 1] for i in self.net.getUnconnectedOutLayers()]
+        self.outputlayers = [layer_names[i - 1] for i in self.net.getUnconnectedOutLayers()]
         self.colors = np.random.uniform(0, 255, size=(len(self.classes), 3))
         self.frame_id = 0
 
@@ -41,7 +46,7 @@ class BallDetector:
                 scores = detection[5:]
                 class_id = np.argmax(scores)
                 confidence = scores[class_id]
-                if confidence > 0.3:
+                if confidence > CONFIDENCE_THRESH:
                     # onject detected
                     center_x = int(detection[0] * width)
                     center_y = int(detection[1] * height)
@@ -58,7 +63,7 @@ class BallDetector:
                         float(confidence))  # how confidence was that object detected and show that percentage
                     class_ids.append(class_id)  # name of the object tha was detected
 
-        indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.4, 0.6)
+        indexes = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESH, NMS_THRESH)
 
         xmax = None
         ymax = None
@@ -86,14 +91,12 @@ class BallDetector:
             return True, img_x, img_y, wmax, hmax, max_confidence
 
 if __name__ == '__main__':
-    # try:
-    #     app.run(main)
-    # except SystemExit:
-    #     pass
     ballDetector = BallDetector()
-    for i in range(50):
-        image = cv2.imread("C:/Users/piyus/GrabCAD/Robot_Arm/yolo_formatted_data/valid_image_folder/img0.jpg")
-        found, x, y, w, h, conf = ballDetector.find_ball_bbox(image, 0, 0)
-    cv2.rectangle(image, (x, y), (x+w, y+h), (255, 0, 0), 1)
-    cv2.imshow("image with bounding box", cv2.resize(image, (96*4, 96*4)))
+    # image = cv2.imread("C:/Users/piyus/GrabCAD/Robot_Arm/yolo_formatted_data/valid_image_folder/img340.jpg")
+    img = cv2.imread("C:/Users/piyus/Robot_Arm_Ping_Pong/misc/orange_ball_pics/im1.png")
+    color_image = img[0:384, (640 - 384):640]
+    found, x, y, w, h, conf = ballDetector.find_ball_bbox(color_image, 0, 0)
+    bbox_image = cv2.rectangle(color_image, (x, y), (x+w, y+h), (255, 0, 0), 1)
+    cv2.imshow("image", cv2.resize(color_image, (96*4, 96*4)))
+    cv2.imshow("image with bounding box", cv2.resize(bbox_image, (96*4, 96*4)))
     cv2.waitKey()

@@ -4,22 +4,25 @@ import numpy as np
 
 SQUARE_SIZE = 0.045  # in meters
 
+BLACK_CAMERA_IMAGE_DIM = (480, 640)
+REALSENSE_IMAGE_DIM = (1080, 1920)
+
 # checkerboard upright frame = frame A
 # checkerboard on table frame = frame B
 # robot arm frame = frame C
 # realsense frame = frame D
 # black camera frame = frame E
 
-# black camera parameters:
+# black camera intrinsic parameters:
 
 black_camera_matrix = np.array([
-    [1.15090805e+03, 0.00000000e+00, 6.85823395e+02],
-    [0.00000000e+00, 1.14906092e+03, 4.79730926e+02],
+    [575.454025, 0.00000000e+00, 342.9116975],
+    [0.00000000e+00, 574.53046, 239.865463],
     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
 
 black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
 
-# intel realsense parameters:
+# intel realsense intrinsic parameters:
 
 realsense_camera_matrix = np.array([
     [591.48522865, 0., 322.52619954],
