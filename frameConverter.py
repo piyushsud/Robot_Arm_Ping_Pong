@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+DIST_TOLERANCE = 0.1
 
 SQUARE_SIZE = 0.045  # in meters
 
@@ -84,7 +85,6 @@ class FrameConverter:
         return point
 
     def image_to_camera_frame(self, camera, r, c):
-        depth = 0  # I am not using the depth estimation from either of the cameras
 
         if camera == "realsense":
             fx = self.realsense_fx
@@ -97,10 +97,12 @@ class FrameConverter:
             fy = self.black_fy
             cx = self.black_cx
             cy = self.black_cy
-            
-        x = (c - cx)*depth/fx
-        y = (r - cy)*depth/fy
-        z = depth
+
+        # coords are scaled by 1/z because z is unknown
+
+        x = (c - cx)/fx
+        y = (r - cy)/fy
+        z = 1
 
         return x, y, z
 
@@ -117,3 +119,47 @@ class FrameConverter:
             p_c = np.matmul(T_cb, p_b)
 
         return p_c[:-1]  # point is (x, y, z, 1) so just return (x, y, z)
+
+    def find_intersection_point(self, x1_c, y1_c, z1_c, x2_c, y2_c, z2_c):
+
+        # https://math.stackexchange.com/questions/2213165/find-shortest-distance-between-lines-in-3d
+
+        # location of ball in world frame as estimated by realsense
+        b = np.array([x1_c, y1_c, z1_c])
+
+        # location of ball in world frame as estimated by black camera
+        d = np.array([x2_c, y2_c, z2_c])
+
+        # location of realsense in robot frame:
+        T_cd = np.matmul(T_ca, T_ad)
+        a = T_cd[0:2, 3]
+
+        # location of black camera in robot frame:
+        T_ce = np.matmul(T_cb, T_be)
+        c = T_ce[0:2, 3]
+
+        e = a - c
+
+        # expressions that are computed multiple times
+        j = np.dot(b, b)
+        k = np.dot(d, d)
+        l = np.dot(b, d)
+        m = np.dot(d, e)
+        n = np.dot(b, e)
+
+        # calculate point at line corresponding to minimum distance
+        A = -j * k + l**2
+        t = (k*n - m*l)/A
+        s = (-j*m + n*l)/A
+
+        closest_dist = e + np.dot(b, t) - np.dot(d, s)
+        if closest_dist > DIST_TOLERANCE:
+            print("cameras did not agree on location of ball")
+            return None
+        else:
+            closest_pt_1 = a + np.dot(b, t)
+            closest_pt_2 = c + np.dot(d, s)
+            closest_pt = np.add(closest_pt_1, closest_pt_2)/2
+            return closest_pt
+
+
