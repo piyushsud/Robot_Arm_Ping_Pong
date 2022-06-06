@@ -54,7 +54,7 @@ class TrajectoryCalculator:
 
         z = (VT/G)*(v0*np.sin(theta) + VT + VT*np.log(1 - rotated_xpos*G/(v0*VT*np.cos(theta))))
 
-        return x, y, z
+        return np.array([x, y, z])
 
 if __name__ == "__main__":
     trajectoryCalculator = TrajectoryCalculator()

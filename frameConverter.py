@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-DIST_TOLERANCE = 0.1
+DIST_TOLERANCE = 0.07
 
 SQUARE_SIZE = 0.045  # in meters
 
@@ -17,8 +17,8 @@ REALSENSE_IMAGE_DIM = (1080, 1920)
 # black camera intrinsic parameters:
 
 black_camera_matrix = np.array([
-    [575.454025, 0.00000000e+00, 342.9116975],
-    [0.00000000e+00, 574.53046, 239.865463],
+    [575.454025, 0.00000000e+00, 320],
+    [0.00000000e+00, 574.53046, 240],
     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
 
 black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
@@ -26,8 +26,8 @@ black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.0
 # intel realsense intrinsic parameters:
 
 realsense_camera_matrix = np.array([
-    [591.48522865, 0., 322.52619954],
-    [0., 591.9638662, 257.7496392],
+    [591.48522865, 0., 320],
+    [0., 591.9638662, 240],
     [0., 0., 1.]])
 
 realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
@@ -47,8 +47,8 @@ T_be = np.array([[0.99965129, -0.01992817, -0.01732549, 0.1424825505],
 T_ca = np.array(
     [
         [-1, 0, 0, 0.4534875],
-        [0, 0, -1, -0.2311625],
-        [0, -1, 0, 0.2],
+        [0, 0, 1, -0.2311625],
+        [0, 1, 0, 0.2],
         [0, 0, 0, 1]
     ]
 )
@@ -56,8 +56,8 @@ T_ca = np.array(
 T_cb = np.array(
     [
         [1, 0, 0, 0.4525],
-        [0, -1, 0, 0.0545],
-        [0, 0, -1, 0],
+        [0, 1, 0, 0.0545],
+        [0, 0, 1, 0],
         [0, 0, 0, 1]
     ]
 )
@@ -132,11 +132,11 @@ class FrameConverter:
 
         # location of realsense in robot frame:
         T_cd = np.matmul(T_ca, T_ad)
-        a = T_cd[0:2, 3]
+        a = T_cd[0:3, 3]
 
         # location of black camera in robot frame:
         T_ce = np.matmul(T_cb, T_be)
-        c = T_ce[0:2, 3]
+        c = T_ce[0:3, 3]
 
         e = a - c
 
@@ -152,13 +152,15 @@ class FrameConverter:
         t = (k*n - m*l)/A
         s = (-j*m + n*l)/A
 
-        closest_dist = e + np.dot(b, t) - np.dot(d, s)
+        closest_dist = np.linalg.norm(e + np.dot(b, t) - np.dot(d, s))
         if closest_dist > DIST_TOLERANCE:
             print("cameras did not agree on location of ball")
             return None
         else:
             closest_pt_1 = a + np.dot(b, t)
             closest_pt_2 = c + np.dot(d, s)
+            print("point 1: " + str(closest_pt_1))
+            print("point 2: " + str(closest_pt_2))
             closest_pt = np.add(closest_pt_1, closest_pt_2)/2
             return closest_pt
 
