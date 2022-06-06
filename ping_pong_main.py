@@ -76,7 +76,8 @@ class PingPongPipeline:
         prev_gray_img_black_camera = None
         prev_time = None
         curr_time = None
-        prev_bbox_center = None
+        prev_bbox_center_1 = None
+        prev_bbox_center_2 = None
         prev_closest_pt = np.zeros((3,))
         closest_pt = np.zeros((3,))
 
@@ -166,8 +167,10 @@ class PingPongPipeline:
 
                         if prev_bbox_center_1 is not None:
                             # velocity in units of pixels per frame
-                            ball_horizontal_speed = -1*(bbox_center_1[1] - prev_bbox_center_1[1])
+                            ball_horizontal_speed = (bbox_center_1[1] - prev_bbox_center_1[1])
+                            print(ball_horizontal_speed)
                             if ball_horizontal_speed > MIN_VEL and trajectory_frame_count < TRAJECTORY_N_FRAMES:
+
 
                                 # position of ball in realsense camera frame, as estimated with realsense
                                 x1_d, y1_d, z1_d = self.frameConverter.image_to_camera_frame("realsense", r1, c1)
@@ -182,16 +185,18 @@ class PingPongPipeline:
                                 prev_closest_pt = closest_pt
                                 closest_pt = self.frameConverter.find_intersection_point(x1_c, y1_c, z1_c, x2_c, y2_c, z2_c)
 
-                                # if closest_pt is not None:
-                                #     print(closest_pt[0], closest_pt[1], closest_pt[2])
+                                if closest_pt is not None:
+                                    # print(closest_pt[0], closest_pt[1], closest_pt[2])
+                                    print("time diff: " + str(curr_time - prev_time))
+                                    ball_dest_at_x = \
+                                        self.trajectoryCalculator.calculate_trajectory(
+                                            np.array([closest_pt[0], closest_pt[1], closest_pt[2]]),
+                                            np.array([prev_closest_pt[0], prev_closest_pt[1], prev_closest_pt[2]]),
+                                            curr_time - prev_time,
+                                            0.1)
 
-                                ball_dest_at_x = \
-                                    self.trajectoryCalculator.calculate_trajectory(closest_pt[0], closest_pt[1], closest_pt[2],
-                                                                                   prev_closest_pt[0], prev_closest_pt[1],
-                                                                                   prev_closest_pt[2], curr_time - prev_time)
-
-                                ball_dest_estimates.append(ball_dest_at_x)
-                                trajectory_frame_count += 1
+                                    ball_dest_estimates.append(ball_dest_at_x)
+                                    trajectory_frame_count += 1
 
                                 if trajectory_frame_count == TRAJECTORY_N_FRAMES:
                                     break
@@ -210,13 +215,13 @@ class PingPongPipeline:
             for i in range(3):
                 avg_dest[i] = np.sum(ball_dest_estimates[:, i])/TRAJECTORY_N_FRAMES
 
-            target_reachable, angles = self.invKin.analytical_inverse_kinematics(avg_dest[0], avg_dest[1], avg_dest[2], 0)
+            target_not_reachable, angles = self.invKin.analytical_inverse_kinematics(avg_dest[0], avg_dest[1], avg_dest[2], 0)
             print(avg_dest[0], avg_dest[1], avg_dest[2])
-            if target_reachable:
+            if target_not_reachable:
+                print("target not reachable")
+            else:
                 # self.publisher.publish_angles(angles)
                 print("target reachable")
-            else:
-                print("target not reachable")
 
         finally:
             print("done")
