@@ -35,6 +35,12 @@ class TrajectoryCalculator:
         # initial velocity
         velocity_vector = (ball_precise_location_world_frame - previous_ball_precise_location_world_frame)/delta_time
 
+        # print(ball_precise_location_world_frame)
+        # print(previous_ball_precise_location_world_frame)
+
+        # to compensate for discrete estimation error
+        # velocity_vector[2] -= 1.5
+
         # velocity vector projected on x-y plane
         proj_vel_vector = (np.dot(velocity_vector, x_unit) * x_unit + np.dot(velocity_vector, y_unit) * y_unit)[0:2]
 
@@ -61,7 +67,7 @@ class TrajectoryCalculator:
 
         # launch angle
         theta = np.arctan2(velocity_vector[2], np.sqrt(velocity_vector[0]**2 + velocity_vector[1]**2))
-        print(theta*180/np.pi)
+        # print(theta*180/np.pi)
 
         # upper_limit = v0*VT*np.cos(theta)/G
         upper_limit = 1000000
@@ -73,7 +79,7 @@ class TrajectoryCalculator:
             # z = (VT / G) * (v0 * np.sin(theta) + VT + VT * np.log(1 - rotated_xpos * G / (v0 * VT * np.cos(theta))))
 
             # t << vt/g (assuming air resistance is negligible)
-            t = -(VT/G)*np.log(1 - G*x/(v0*VT*np.cos(theta)))
+            t = -(VT/G)*np.log(1 - G*rotated_xpos/(v0*VT*np.cos(theta)))
             z = v0*np.sin(theta)*t - (G/2)*t**2
 
             return np.array([-x, -y, z])

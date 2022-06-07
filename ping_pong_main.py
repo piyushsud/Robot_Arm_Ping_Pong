@@ -31,23 +31,23 @@ NEURAL_NETWORK_IMAGE_SIZE = 96
 
 count = 0
 
-# black camera intrinsic parameters:
-
-black_camera_matrix = np.array([
-    [575.454025, 0.00000000e+00, 320],
-    [0.00000000e+00, 574.53046, 240],
-    [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
-
-black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
-
-# intel realsense intrinsic parameters:
-
-realsense_camera_matrix = np.array([
-    [591.48522865, 0., 320],
-    [0., 591.9638662, 240],
-    [0., 0., 1.]])
-
-realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
+# # black camera intrinsic parameters:
+#
+# black_camera_matrix = np.array([
+#     [575.454025, 0.00000000e+00, 320],
+#     [0.00000000e+00, 574.53046, 240],
+#     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+#
+# black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
+#
+# # intel realsense intrinsic parameters:
+#
+# realsense_camera_matrix = np.array([
+#     [591.48522865, 0., 320],
+#     [0., 591.9638662, 240],
+#     [0., 0., 1.]])
+#
+# realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
 
 # camera 1 is the intel realsense, camera 2 is the black camera
 
@@ -179,6 +179,7 @@ class PingPongPipeline:
 
                     # todo: find actual location of ball in blurred image based on previous pixel position
                     # todo: use actual time instead of computation time
+                    # https://stackoverflow.com/questions/85451/pythons-time-clock-vs-time-time-accuracy
                     # https: // stackoverflow.com / questions / 1557571 / how - do - i - get - time - of - a - python - programs - execution
                     # todo: make processing faster in order to make frames closer together
 
@@ -211,6 +212,8 @@ class PingPongPipeline:
                                 # position of ball in black camera frame, as estimated with black camera
                                 x2_e, y2_e, z2_e = self.frameConverter.image_to_camera_frame("black", r2, c2)
 
+                                # print(x1_d, y1_d, z1_d, x2_e, y2_e, z2_e)
+
                                 # convert both positions to robot arm frame:
                                 x1_c, y1_c, z1_c = self.frameConverter.camera_to_robot_frame("realsense", x1_d, y1_d, z1_d)
                                 x2_c, y2_c, z2_c = self.frameConverter.camera_to_robot_frame("black", x2_e, y2_e, z2_e)
@@ -218,10 +221,10 @@ class PingPongPipeline:
                                 closest_pt = self.frameConverter.find_intersection_point(x1_c, y1_c, z1_c, x2_c, y2_c, z2_c)
 
                                 if closest_pt is not None:
-                                    # print(closest_pt[0], closest_pt[1], closest_pt[2])
+                                    print(closest_pt[0], closest_pt[1], closest_pt[2])
                                     # print("time diff: " + str(curr_time - prev_time))
                                     prev_time = curr_time
-                                    curr_time = time.time()
+                                    curr_time = time.perf_counter()
 
                                     if closest_pt[0] < 0.2:
                                         print("was not able to calculate trajectory in time")

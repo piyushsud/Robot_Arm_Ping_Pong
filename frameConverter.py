@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-DIST_TOLERANCE = 0.07
+DIST_TOLERANCE = 0.1
 
 SQUARE_SIZE = 0.045  # in meters
 
@@ -14,11 +14,27 @@ REALSENSE_IMAGE_DIM = (1080, 1920)
 # realsense frame = frame D
 # black camera frame = frame E
 
-# black camera intrinsic parameters:
+# # black camera intrinsic parameters:
+#
+# black_camera_matrix = np.array([
+#     [575.454025, 0.00000000e+00, 320],
+#     [0.00000000e+00, 574.53046, 240],
+#     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
+#
+# black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
+#
+# # intel realsense intrinsic parameters:
+#
+# realsense_camera_matrix = np.array([
+#     [591.48522865, 0., 320],
+#     [0., 591.9638662, 240],
+#     [0., 0., 1.]])
+#
+# realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
 
 black_camera_matrix = np.array([
-    [575.454025, 0.00000000e+00, 320],
-    [0.00000000e+00, 574.53046, 240],
+    [575.454025, 0.00000000e+00, 342.9116975],
+    [0.00000000e+00, 574.53046, 239.865463],
     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
 
 black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
@@ -26,29 +42,28 @@ black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.0
 # intel realsense intrinsic parameters:
 
 realsense_camera_matrix = np.array([
-    [591.48522865, 0., 320],
-    [0., 591.9638662, 240],
+    [591.48522865, 0., 322.52619954],
+    [0., 591.9638662, 257.7496392],
     [0., 0., 1.]])
 
 realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
 
-
-T_ad = np.array([[0.99929197, 0.02608819, 0.02711012, -0.06647676345],
-                 [-0.02659131, 0.99947765, 0.01836679, -0.07870460175],
-                 [-0.0266168, -0.01907468,  0.99946371, 0.9110652129],
+T_ad = np.array([[0.99929197, 0.02608819, 0.02711012, 0.06647676345],
+                 [-0.02659131, 0.99947765, 0.01836679, 0.07870460175],
+                 [-0.0266168, -0.01907468,  0.99946371, -0.9110652129],
                  [0, 0, 0, 1]])
 
 
-T_be = np.array([[0.99965129, -0.01992817, -0.01732549, 0.1424825505],
-                 [0.01924965,  0.99907374, -0.03848515, -0.14332873005],
-                 [0.01807638,  0.03813822,  0.99910896, 1.0483714251],
+T_be = np.array([[0.99965129, -0.01992817, -0.01732549, -0.1424825505],
+                 [0.01924965,  0.99907374, -0.03848515, 0.14332873005],
+                 [0.01807638,  0.03813822,  0.99910896, -1.0483714251],
                  [0, 0, 0, 1]])
 
 T_ca = np.array(
     [
         [-1, 0, 0, 0.4534875],
-        [0, 0, 1, -0.2311625],
-        [0, 1, 0, 0.2],
+        [0, 0, -1, -0.2311625],
+        [0, -1, 0, 0.2],
         [0, 0, 0, 1]
     ]
 )
@@ -56,8 +71,8 @@ T_ca = np.array(
 T_cb = np.array(
     [
         [1, 0, 0, 0.4525],
-        [0, 1, 0, 0.0545],
-        [0, 0, 1, 0],
+        [0, -1, 0, 0.0545],
+        [0, 0, -1, 0],
         [0, 0, 0, 1]
     ]
 )
@@ -113,10 +128,14 @@ class FrameConverter:
         if camera == "realsense":
             p_a = np.matmul(T_ad, point)
             p_c = np.matmul(T_ca, p_a)
+            # print("realsense")
+            # print(p_a, p_c)
 
         else:  # if black camera
             p_b = np.matmul(T_be, point)
             p_c = np.matmul(T_cb, p_b)
+            # print("black")
+            # print(p_b, p_c)
 
         return p_c[:-1]  # point is (x, y, z, 1) so just return (x, y, z)
 
@@ -125,10 +144,10 @@ class FrameConverter:
         # https://math.stackexchange.com/questions/2213165/find-shortest-distance-between-lines-in-3d
 
         # location of ball in world frame as estimated by realsense
-        b = np.array([x1_c, y1_c, z1_c])
+        q = np.array([x1_c, y1_c, z1_c])
 
         # location of ball in world frame as estimated by black camera
-        d = np.array([x2_c, y2_c, z2_c])
+        r = np.array([x2_c, y2_c, z2_c])
 
         # location of realsense in robot frame:
         T_cd = np.matmul(T_ca, T_ad)
@@ -137,6 +156,12 @@ class FrameConverter:
         # location of black camera in robot frame:
         T_ce = np.matmul(T_cb, T_be)
         c = T_ce[0:3, 3]
+
+        # vectors from camera to ball = ball_pos - camera_pos
+        b = q - a
+        d = r - c
+
+        # print(a, c, q, r, b, d)
 
         e = a - c
 
