@@ -47,16 +47,34 @@ class BallDetector:
                 class_id = np.argmax(scores)
                 confidence = scores[class_id]
                 if confidence > CONFIDENCE_THRESH:
-                    # onject detected
+                    # object detected
                     center_x = int(detection[0] * width)
                     center_y = int(detection[1] * height)
                     w = int(detection[2] * width)
                     h = int(detection[3] * height)
 
                     # cv2.circle(img,(center_x,center_y),10,(0,255,0),2)
-                    # rectangle co-ordinaters
+                    # rectangle coordinates
                     x = int(center_x - w / 2)
                     y = int(center_y - h / 2)
+
+                    if x < 0:
+                        w += x
+                        x = 0
+
+                    if x >= width:
+                        diff = x - width - 1
+                        w -= diff
+                        x = width - 1
+
+                    if y < 0:
+                        h += y
+                        y = 0
+
+                    if y >= height:
+                        diff = y - width - 1
+                        h -= diff
+                        y = height - 1
 
                     boxes.append([x, y, w, h])  # put all rectangle areas
                     confidences.append(
@@ -86,8 +104,10 @@ class BallDetector:
             return False, None, None, None, None, None
         else:
             # convert cropped image bounding box coordinates to whole image bounding box coordinates
+
             img_x = x_top_left + xmax
             img_y = y_top_left + ymax
+            # print(img_x, img_y, x_top_left, y_top_left, xmax, ymax, wmax, hmax)
             return True, img_x, img_y, wmax, hmax, max_confidence
 
 if __name__ == '__main__':

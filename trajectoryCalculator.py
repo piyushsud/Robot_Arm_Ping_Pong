@@ -16,6 +16,16 @@ class TrajectoryCalculator:
     # ball_precise_location_world_frame = (x, y, z) in meters
     def calculate_trajectory(self, ball_precise_location_world_frame, previous_ball_precise_location_world_frame, delta_time, x):
 
+        # convert frame because this code assumes positive x is towards the robot and positive y is away from the realsense
+        ball_precise_location_world_frame[0] = -ball_precise_location_world_frame[0]
+        ball_precise_location_world_frame[1] = -ball_precise_location_world_frame[1]
+        previous_ball_precise_location_world_frame[0] = -previous_ball_precise_location_world_frame[0]
+        previous_ball_precise_location_world_frame[1] = -previous_ball_precise_location_world_frame[1]
+        x = -x
+
+
+        # print(ball_precise_location_world_frame[0])
+
         # first, find xpos distance in rotated plane:
             # find projection of velocity vector on x-y plane
             # find point (x, y) where projection of velocity vector with tail at (x,y) of ball_precise_location_world_frame
@@ -51,11 +61,28 @@ class TrajectoryCalculator:
 
         # launch angle
         theta = np.arctan2(velocity_vector[2], np.sqrt(velocity_vector[0]**2 + velocity_vector[1]**2))
+        print(theta*180/np.pi)
 
-        z = (VT/G)*(v0*np.sin(theta) + VT + VT*np.log(1 - rotated_xpos*G/(v0*VT*np.cos(theta))))
+        # upper_limit = v0*VT*np.cos(theta)/G
+        upper_limit = 1000000
+        if x < upper_limit:
+            # np.log function is actually the log with an exponential base, not base 10
+            # z = (VT/G)*((v0*np.sin(theta) + VT) * (G*rotated_xpos/(v0*VT*np.cos(theta))) + VT*np.log(1 - rotated_xpos*G/(v0*VT*np.cos(theta))))
 
-        return np.array([x, y, z])
+            # t >> vt/g
+            # z = (VT / G) * (v0 * np.sin(theta) + VT + VT * np.log(1 - rotated_xpos * G / (v0 * VT * np.cos(theta))))
+
+            # t << vt/g (assuming air resistance is negligible)
+            t = -(VT/G)*np.log(1 - G*x/(v0*VT*np.cos(theta)))
+            z = v0*np.sin(theta)*t - (G/2)*t**2
+
+            return np.array([-x, -y, z])
+        else:
+            print("ball cannot travel that far due to air resistance")
+            return None
+
 
 if __name__ == "__main__":
     trajectoryCalculator = TrajectoryCalculator()
-    trajectoryCalculator.calculate_trajectory(np.array([1, 2, 1]), np.array([0, 0, 0]), 0.1, 3)
+    arr = trajectoryCalculator.calculate_trajectory(np.array([0.9, -0.2, 0.3]), np.array([1, -0.2, 0.2]), 0.2, 0.1)
+    print(arr)
