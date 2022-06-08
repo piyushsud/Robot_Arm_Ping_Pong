@@ -35,12 +35,6 @@ class TrajectoryCalculator:
         # initial velocity
         velocity_vector = (ball_precise_location_world_frame - previous_ball_precise_location_world_frame)/delta_time
 
-        # print(ball_precise_location_world_frame)
-        # print(previous_ball_precise_location_world_frame)
-
-        # to compensate for discrete estimation error
-        # velocity_vector[2] -= 1.5
-
         # velocity vector projected on x-y plane
         proj_vel_vector = (np.dot(velocity_vector, x_unit) * x_unit + np.dot(velocity_vector, y_unit) * y_unit)[0:2]
 
@@ -67,7 +61,6 @@ class TrajectoryCalculator:
 
         # launch angle
         theta = np.arctan2(velocity_vector[2], np.sqrt(velocity_vector[0]**2 + velocity_vector[1]**2))
-        # print(theta*180/np.pi)
 
         # upper_limit = v0*VT*np.cos(theta)/G
         upper_limit = 1000000

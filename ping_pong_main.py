@@ -3,6 +3,7 @@ import cv2
 from inverseKinematics import InverseKinematics
 from colorChecker import ColorChecker
 from ballDetector import BallDetector
+from blobDetector import BlobDetector
 from frameConverter import FrameConverter
 from publisher import MqttPublisher
 import pyrealsense2 as rs
@@ -27,7 +28,6 @@ MIN_VEL = 10 # in pixels/frame in the horizontal direction
 NEURAL_NETWORK_IMAGE_SIZE = 96
 
 # robot is on the right, player is on the left
-
 
 count = 0
 
@@ -57,6 +57,7 @@ class PingPongPipeline:
         # print("starting init function")
         self.invKin = InverseKinematics()
         self.ballDetector = BallDetector()
+        self.blobDetector = BlobDetector()
         self.colorChecker = ColorChecker()
         self.frameConverter = FrameConverter()
         self.publisher = MqttPublisher()
@@ -76,33 +77,31 @@ class PingPongPipeline:
         global count
 
         # previous information used for motion tracking
-        previous_ball_precise_location = (0, 0)  # in pixels
-        previous_ball_precise_location_world_frame = (0, 0, 0)  # (x, y, z) in meters
         prev_gray_img_realsense = None
         prev_gray_img_black_camera = None
         prev_time = None
-        curr_time = None
         prev_bbox_center_1 = None
         prev_bbox_center_2 = None
         prev_closest_pt = None
-        closest_pt = None
+        prev_point_realsense = None
+        prev_point_black = None
 
+        # other variables
+        closest_pt = None
+        curr_time = None
         trajectory_frame_count = 0
         ball_dest_estimates = []
-        dest_x_avg = None
-        dest_y_avg = None
-        dest_z_avg = None
         done = False
         final_ball_dest_estimate = (0, 0, 0)  # (x, y, z) in meters
         cannot_reach_ball = False
+        first_point_set = False
+        dist_thresh_pixels = 100
 
         i = 0
 
         # Streaming loop
         try:
             while True:
-                # print(str(i))
-
                 # get black camera frame
                 ret_black, black_camera_frame = self.black_cam.read()
 
@@ -177,13 +176,9 @@ class PingPongPipeline:
 
                     cv2.waitKey(1)
 
-                    # todo: find actual location of ball in blurred image based on previous pixel position
-                    # todo: use actual time instead of computation time
-                    # https://stackoverflow.com/questions/85451/pythons-time-clock-vs-time-time-accuracy
-                    # https: // stackoverflow.com / questions / 1557571 / how - do - i - get - time - of - a - python - programs - execution
-                    # todo: make processing faster in order to make frames closer together
+                    # todo: approximate ball velocity between prev and current ball
 
-                    if realsense_valid and black_valid:
+                    if ball_detected and ball_detected_2:
                         # find coordinates of center of ball in both cameras
                         r1 = int(yBox + hBox/2)
                         c1 = int(xBox + wBox/2)
@@ -193,10 +188,10 @@ class PingPongPipeline:
                         c2 = int(xBox2 + wBox2/2)
                         bbox_center_2 = (r2, c2)
 
-                        cv2.imwrite(trajectory_path + "realsense_" + str(count) + ".png",
-                                    bbox_image_realsense)
-                        cv2.imwrite(trajectory_path + "black_" + str(count) + ".png",
-                                    bbox_image_black_camera)
+                        # cv2.imwrite(trajectory_path + "realsense_" + str(count) + ".png",
+                        #             bbox_image_realsense)
+                        # cv2.imwrite(trajectory_path + "black_" + str(count) + ".png",
+                        #             bbox_image_black_camera)
 
                         count += 1
 
@@ -206,11 +201,41 @@ class PingPongPipeline:
                             # print(ball_horizontal_speed)
                             if ball_horizontal_speed > MIN_VEL and trajectory_frame_count < TRAJECTORY_N_FRAMES:
 
+                                # double check this algo
+
+                                if first_point_set:
+                                    point_realsense = self.blobDetector.find_ball(color_image_realsense)
+                                    point_black = self.blobDetector.find_ball(color_image_black_camera)
+
+                                    if (np.linalg.norm(point_realsense - prev_point_realsense) > dist_thresh_pixels
+                                        or point_realsense[1] < prev_point_realsense[1]
+                                        or np.linalg.norm(point_black - prev_point_black) > dist_thresh_pixels
+                                        or point_black[1] < prev_point_black[1]):
+
+                                        if black_valid and realsense_valid:
+                                            point_realsense = (r1, c1)
+                                            point_black = (r2, c2)
+                                        else:
+                                            dist_thresh_pixels *= 2
+                                            continue
+                                                                              
+                                else:
+                                    if black_valid and realsense_valid:
+                                        first_point_set = True
+                                    else:
+                                        continue
+
+                                prev_point_realsense = (r1, c1)
+                                prev_point_black = (r2, c2)
+
+
                                 # position of ball in realsense camera frame, as estimated with realsense
-                                x1_d, y1_d, z1_d = self.frameConverter.image_to_camera_frame("realsense", r1, c1)
+                                x1_d, y1_d, z1_d = self.frameConverter.image_to_camera_frame(
+                                    "realsense", point_realsense[0], point_realsense[1])
 
                                 # position of ball in black camera frame, as estimated with black camera
-                                x2_e, y2_e, z2_e = self.frameConverter.image_to_camera_frame("black", r2, c2)
+                                x2_e, y2_e, z2_e = self.frameConverter.image_to_camera_frame\
+                                    ("black", point_black[0], point_black[1])
 
                                 # print(x1_d, y1_d, z1_d, x2_e, y2_e, z2_e)
 
@@ -221,7 +246,8 @@ class PingPongPipeline:
                                 closest_pt = self.frameConverter.find_intersection_point(x1_c, y1_c, z1_c, x2_c, y2_c, z2_c)
 
                                 if closest_pt is not None:
-                                    print(closest_pt[0], closest_pt[1], closest_pt[2])
+                                    print(time.perf_counter())
+                                    # print(closest_pt[0], closest_pt[1], closest_pt[2])
                                     # print("time diff: " + str(curr_time - prev_time))
                                     prev_time = curr_time
                                     curr_time = time.perf_counter()
@@ -237,7 +263,7 @@ class PingPongPipeline:
                                                 np.array([closest_pt[0], closest_pt[1], closest_pt[2]]),
                                                 np.array([prev_closest_pt[0], prev_closest_pt[1], prev_closest_pt[2]]),
                                                 curr_time - prev_time,
-                                                0.15)
+                                                0.1)
                                         if ball_dest_at_x is not None:
                                             ball_dest_estimates.append(ball_dest_at_x)
                                             trajectory_frame_count += 1

@@ -7,7 +7,6 @@ class ColorChecker:
         self.lower_orange = np.array([6, 70, 130])
         self.upper_orange = np.array([18, 255, 255])
 
-
     def is_valid(self, img):
 
         image_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
