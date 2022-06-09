@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import time
 import pyrealsense2 as rs
+import matplotlib.pyplot as plt
 
 CONFIDENCE_THRESH = 0.05
 NMS_THRESH = 0.4
@@ -24,6 +25,8 @@ class BallDetector:
         self.frame_id = 0
 
     def find_ball_bbox(self, color_image, x_top_left, y_top_left):
+        plt.imshow(color_image)
+        plt.show()
         frame = color_image.copy()
         self.frame_id += 1
 
@@ -113,8 +116,8 @@ class BallDetector:
 if __name__ == '__main__':
     ballDetector = BallDetector()
     # image = cv2.imread("C:/Users/piyus/GrabCAD/Robot_Arm/yolo_formatted_data/valid_image_folder/img340.jpg")
-    img = cv2.imread("C:/Users/piyus/Robot_Arm_Ping_Pong/misc/orange_ball_pics/im1.png")
-    color_image = img[0:384, (640 - 384):640]
+    img = cv2.imread("C:/Users/piyus/Robot_Arm_Ping_Pong/misc/trajectory_pics/black839.png")
+    color_image = img[(480-384):480, 0:384]
     found, x, y, w, h, conf = ballDetector.find_ball_bbox(color_image, 0, 0)
     bbox_image = cv2.rectangle(color_image, (x, y), (x+w, y+h), (255, 0, 0), 1)
     cv2.imshow("image", cv2.resize(color_image, (96*4, 96*4)))
