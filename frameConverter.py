@@ -178,6 +178,7 @@ class FrameConverter:
         s = (-j*m + n*l)/A
 
         closest_dist = np.linalg.norm(e + np.dot(b, t) - np.dot(d, s))
+        # print(closest_dist)
         if closest_dist > DIST_TOLERANCE:
             # print("cameras did not agree on location of ball")
             return None
