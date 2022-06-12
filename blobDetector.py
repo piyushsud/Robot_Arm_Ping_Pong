@@ -73,14 +73,13 @@ class BlobDetector:
             #     cv2.imshow("contours", draw_copy)
             #     cv2.waitKey(0)
 
-            return True, (int(keypoints[0].pt[0]), int(keypoints[0].pt[1]))
+            return True, (int(keypoints[0].pt[1]), int(keypoints[0].pt[0]))
         else:
             contours, hierarchy = cv2.findContours(masked_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
             # find contour with brighter orange color
             center = None
             max_value = 0
-            max_value_area = None
             for ind, con in enumerate(contours):
                 img_copy = np.copy(img)
                 if len(con) < 5:
@@ -88,12 +87,6 @@ class BlobDetector:
                 area = cv2.contourArea(con)
                 if area < 400:
                     continue
-
-                # print(ind)
-                # draw_copy = np.copy(img_copy)
-                # cv2.drawContours(draw_copy, contours, ind, (255, 0, 0))
-                # cv2.imshow("contours", draw_copy)
-                # cv2.waitKey(0)
 
                 minEllipse = cv2.fitEllipse(con)
                 x = int(minEllipse[0][0])
@@ -120,19 +113,15 @@ class BlobDetector:
                 cropped_img_before_ellipse = np.copy(img_copy[up:down, left:right])
                 cv2.ellipse(img_copy, minEllipse, (0, 0, 0), -1)
                 img_cropped = img_copy[up:down, left:right]
-                # print(up, down, left, right, img_copy.shape)
                 gray_img_cropped = cv2.cvtColor(img_cropped, cv2.COLOR_BGR2GRAY)
                 gray_img_cropped = 255 - gray_img_cropped
                 ret, mask = cv2.threshold(gray_img_cropped, 254, 255, cv2.THRESH_BINARY)
                 hsv_cropped = cv2.cvtColor(cropped_img_before_ellipse, cv2.COLOR_BGR2HSV)
-                # print(mask.shape, hsv_cropped.shape)
                 avg = np.nanmean(np.where(mask, hsv_cropped[:, :, 2], np.nan))
                 if avg > max_value:
-                    # print(area)
-                    # max_value_area = ind
+
                     max_value = avg
-                    center = (x, y)
-            # print(max_value_area)
+                    center = (y, x)
             return True, center
 
 

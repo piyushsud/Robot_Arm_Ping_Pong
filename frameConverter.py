@@ -1,12 +1,25 @@
 import cv2
 import numpy as np
+from blobDetector import BlobDetector
 
 DIST_TOLERANCE = 0.1
 
 SQUARE_SIZE = 0.045  # in meters
 
 BLACK_CAMERA_IMAGE_DIM = (480, 640)
-REALSENSE_IMAGE_DIM = (1080, 1920)
+REALSENSE_IMAGE_DIM = (480, 640)
+
+FPS = 30
+N_CHANNELS = 3
+MOTION_THRESHOLD = 100
+MAX_INTENSITY = 255
+BALL_DEST_X_POSITION = 2 # in meters
+TRAJECTORY_N_FRAMES = 1
+MIN_VEL = 10 # in pixels/frame in the horizontal direction
+NEURAL_NETWORK_IMAGE_SIZE = 96
+
+# BLACK_CAMERA_IMAGE_DIM = (480, 640)
+# REALSENSE_IMAGE_DIM = (480, 640)
 
 # checkerboard upright frame = frame A
 # checkerboard on table frame = frame B
@@ -33,8 +46,8 @@ REALSENSE_IMAGE_DIM = (1080, 1920)
 # realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
 
 black_camera_matrix = np.array([
-    [575.454025, 0.00000000e+00, 342.9116975],
-    [0.00000000e+00, 574.53046, 239.865463],
+    [575.454025, 0.00000000e+00, 320],
+    [0.00000000e+00, 574.53046, 240],
     [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]])
 
 black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.00469088, -0.05419306]])
@@ -42,8 +55,8 @@ black_camera_distortion = np.array([[ 0.06571678, -0.06531794, -0.00267922, -0.0
 # intel realsense intrinsic parameters:
 
 realsense_camera_matrix = np.array([
-    [591.48522865, 0., 322.52619954],
-    [0., 591.9638662, 257.7496392],
+    [591.48522865, 0., 320],
+    [0., 591.9638662, 240],
     [0., 0., 1.]])
 
 realsense_distortion = np.array([[ 0.00252699,  0.50539056,  0.00564689,  0.00742319, -1.62753842]])
@@ -129,13 +142,13 @@ class FrameConverter:
             p_a = np.matmul(T_ad, point)
             p_c = np.matmul(T_ca, p_a)
             # print("realsense")
-            # print(p_a, p_c)
+            # print(point, p_c)
 
         else:  # if black camera
             p_b = np.matmul(T_be, point)
             p_c = np.matmul(T_cb, p_b)
             # print("black")
-            # print(p_b, p_c)
+            # print(point, p_c)
 
         return p_c[:-1]  # point is (x, y, z, 1) so just return (x, y, z)
 
@@ -177,10 +190,13 @@ class FrameConverter:
         t = (k*n - m*l)/A
         s = (-j*m + n*l)/A
 
+        pt_1 = a + b*t
+        pt_2 = c + d*s
+
         closest_dist = np.linalg.norm(e + np.dot(b, t) - np.dot(d, s))
         # print(closest_dist)
         if closest_dist > DIST_TOLERANCE:
-            # print("cameras did not agree on location of ball")
+            print("cameras did not agree on location of ball")
             return None
         else:
             closest_pt_1 = a + np.dot(b, t)
@@ -189,5 +205,6 @@ class FrameConverter:
             # print("point 2: " + str(closest_pt_2))
             closest_pt = np.add(closest_pt_1, closest_pt_2)/2
             return closest_pt
+
 
 

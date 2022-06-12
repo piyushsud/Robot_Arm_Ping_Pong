@@ -43,11 +43,13 @@ class TrajectoryCalculator:
         # x = ball_precise_location_world_frame[0] + proj_vel_vector[0]*s
         # y = ball_precise_location_world_frame[1] + proj_vel_vector[1]*s
 
+        ball_location = (ball_precise_location_world_frame + previous_ball_precise_location_world_frame)/2
+
         # plug in x and solve for s:
-        s = (x - ball_precise_location_world_frame[0]) / proj_vel_vector[0]
+        s = (x - ball_location[0]) / proj_vel_vector[0]
 
         # plug that s into y to find the y location of that point:
-        y = ball_precise_location_world_frame[1] + proj_vel_vector[1]*s
+        y = ball_location[1] + proj_vel_vector[1]*s
 
         # the point where the ball will reach the specified x position is (x, y).
         # the x position in the rotated plane is sqrt(x^2 + y^2).

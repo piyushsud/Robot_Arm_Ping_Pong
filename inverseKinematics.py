@@ -1,3 +1,5 @@
+# todo: combine bottom into invkin function
+
 # all dimensions are in meters, angles are in radians
 import modern_robotics as mr
 import numpy as np
@@ -67,7 +69,6 @@ S = np.array([
     [0, 0, 1, -(l5 - l3 + l1), -(l2 + l4), 0]
 ])
 
-
 class InverseKinematics:
 
     def __init__(self):
@@ -124,103 +125,124 @@ class InverseKinematics:
         # theta 4
         theta4 = -(theta2 + theta3)
 
-        target_not_reachable = False
-
-        thetas = np.round(np.array([theta1, theta2, theta3, theta4, theta5]), 3)
+        thetas = np.array([theta1, theta2, theta3, theta4, theta5])
 
         T = np.round(mr.FKinSpace(M, np.transpose(S), thetas), 4)
+        # print(T)
 
-        x_reached = T[0, 3]
-        y_reached = T[1, 3]
-        z_reached = T[2, 3]
+        x_kin = T[0, 3]
+        y_kin = T[1, 3]
+        z_kin = T[2, 3]
+        # print(abs(x - xtarget), abs(y - ytarget), abs(z - ztarget))
 
-        if abs(x_reached - x) > TOLERANCE or abs(y_reached - y) > TOLERANCE or abs(z_reached - z) > TOLERANCE:
+        target_not_reachable = False
+
+        if abs(x_kin - x) > TOLERANCE or abs(y_kin - y) > TOLERANCE or abs(z_kin - z) > TOLERANCE:
             target_not_reachable = True
             print("bounded by kinematics")
 
-        joint_1_angle = -(theta1 * 180 / PI) + ZERO_OFFSET_JOINT1
-        joint_2_angle = (theta2 * 180 / PI) + ZERO_OFFSET_JOINT2
-        joint_3_angle = -(theta3 * 180 / PI) + ZERO_OFFSET_JOINT3
-        joint_4_angle = (theta4 * 180 / PI) + ZERO_OFFSET_JOINT4
-        joint_5_angle = -(theta5 * 180 / PI) + ZERO_OFFSET_JOINT5
+        joint_1_angle = -(thetas[0] * 180 / PI) + ZERO_OFFSET_JOINT1
+        joint_2_angle = (thetas[1] * 180 / PI) + ZERO_OFFSET_JOINT2
+        joint_3_angle = -(thetas[2] * 180 / PI) + ZERO_OFFSET_JOINT3
+        joint_4_angle = (thetas[3] * 180 / PI) + ZERO_OFFSET_JOINT4
+        joint_5_angle = -(thetas[4] * 180 / PI) + ZERO_OFFSET_JOINT5
 
         angles = np.array([joint_1_angle, joint_2_angle, joint_3_angle, joint_4_angle, joint_5_angle])
-        # print(angles)
-        servo_nums = [11, 10, 13, 14, 12]
+
         for i, angle in enumerate(angles):
             if angle < 0 or angle > actuation_ranges[i]:
                 target_not_reachable = True
 
         return target_not_reachable, angles
 
-
-    def move_to_target(self, angles, servo_nums):
-        dist = np.subtract(angles, currentPos)
-        for j in range(int(DIV)):
-            for i, angle in enumerate(angles):
-                currentPos[i] += dist[i] / DIV
-                kit.servo[servo_nums[i]].angle = currentPos[i]
-        with open('angles.pkl', 'wb') as file:
-            pickle.dump(currentPos, file)
+        # return angles
 
 
-    def slow_move(self, angle, servo_num, servo_nums):
-        i = 0
-        while True:
-            if servo_nums[i] == servo_num:
-                break
-            i += 1
-
-        while True:
-            dist = angle - currentPos[i]
-            if abs(dist) > CALC_TOLERANCE:
-                sign = abs(dist) / dist
-                currentPos[i] += STEP * sign
-                kit.servo[servo_nums[i]].angle = currentPos[i]
-                # print(dist)
-            else:
-                print("reached")
-                with open('angles.pkl', 'wb') as file:
-                    pickle.dump(currentPos, file)
-                break
+# def move_to_target(angles, servo_nums):
+#     dist = np.subtract(angles, currentPos)
+#     for j in range(int(DIV)):
+#         for i, angle in enumerate(angles):
+#             currentPos[i] += dist[i] / DIV
+#             kit.servo[servo_nums[i]].angle = currentPos[i]
+#     with open('angles.pkl', 'wb') as file:
+#         pickle.dump(currentPos, file)
+#
+#
+# def slow_move(angle, servo_num, servo_nums):
+#     i = 0
+#     while True:
+#         if servo_nums[i] == servo_num:
+#             break
+#         i += 1
+#
+#     while True:
+#         dist = angle - currentPos[i]
+#         if abs(dist) > CALC_TOLERANCE:
+#             sign = abs(dist) / dist
+#             currentPos[i] += STEP * sign
+#             kit.servo[servo_nums[i]].angle = currentPos[i]
+#             # print(dist)
+#         else:
+#             print("reached")
+#             with open('angles.pkl', 'wb') as file:
+#                 pickle.dump(currentPos, file)
+#             break
 
 
 if __name__ == "__main__":
     invKin = InverseKinematics()
+    # thetas_zero = analytical_inverse_kinematics(0.3561, -0.0238, 0.1887, 0) #zero position
 
-    xtarget = 0.19
-    ytarget = -0.1
-    ztarget = 0.2
+    # time.sleep(2)
+
+    # xtarget = 0.3161
+    # ytarget = -0.0238
+    # ztarget = 0.1887
+    # desired_yaw = -67*PI/180 #in radians
+
+    xtarget = 0.1
+    ytarget = -0.02
+    ztarget = 0.07
     desired_yaw = -0.7
-    thetas = np.round(invKin.analytical_inverse_kinematics(xtarget, ytarget, ztarget, desired_yaw), 3)
+    target_not_reachable, angles = invKin.analytical_inverse_kinematics(xtarget, ytarget, ztarget, desired_yaw)
+    # print(thetas)
 
-    T = np.round(mr.FKinSpace(M, np.transpose(S), thetas), 4)
+    # T = np.round(mr.FKinSpace(M, np.transpose(S), thetas), 4)
+    # # print(T)
+    #
+    # x = T[0, 3]
+    # y = T[1, 3]
+    # z = T[2, 3]
+    # print(abs(x - xtarget), abs(y - ytarget), abs(z - ztarget))
 
-    x = T[0, 3]
-    y = T[1, 3]
-    z = T[2, 3]
+    # target_not_reachable = False
 
-    target_not_reachable = False
-
-    if abs(x - xtarget) > TOLERANCE or abs(y - ytarget) > TOLERANCE or abs(z - ztarget) > TOLERANCE:
-        target_not_reachable = True
-        print("bounded by kinematics")
-
-    joint_1_angle = -(thetas[0] * 180 / PI) + ZERO_OFFSET_JOINT1
-    joint_2_angle = (thetas[1] * 180 / PI) + ZERO_OFFSET_JOINT2
-    joint_3_angle = -(thetas[2] * 180 / PI) + ZERO_OFFSET_JOINT3
-    joint_4_angle = (thetas[3] * 180 / PI) + ZERO_OFFSET_JOINT4
-    joint_5_angle = -(thetas[4] * 180 / PI) + ZERO_OFFSET_JOINT5
-
-    angles = np.array([joint_1_angle, joint_2_angle, joint_3_angle, joint_4_angle, joint_5_angle])
-    print(angles)
-    servo_nums = [11, 10, 13, 14, 12]
-    for i, angle in enumerate(angles):
-        if angle < 0 or angle > actuation_ranges[i]:
-            target_not_reachable = True
-
+    # if abs(x - xtarget) > TOLERANCE or abs(y - ytarget) > TOLERANCE or abs(z - ztarget) > TOLERANCE:
+    #     target_not_reachable = True
+    #     print("bounded by kinematics")
+    #
+    # joint_1_angle = -(thetas[0] * 180 / PI) + ZERO_OFFSET_JOINT1
+    # joint_2_angle = (thetas[1] * 180 / PI) + ZERO_OFFSET_JOINT2
+    # joint_3_angle = -(thetas[2] * 180 / PI) + ZERO_OFFSET_JOINT3
+    # joint_4_angle = (thetas[3] * 180 / PI) + ZERO_OFFSET_JOINT4
+    # joint_5_angle = -(thetas[4] * 180 / PI) + ZERO_OFFSET_JOINT5
+    #
+    # angles = np.array([joint_1_angle, joint_2_angle, joint_3_angle, joint_4_angle, joint_5_angle])
+    # print(thetas*180/PI)
+    # print(angles)
+    # servo_nums = [11, 10, 13, 14, 12]
+    # for i, angle in enumerate(angles):
+    #     if angle < 0 or angle > actuation_ranges[i]:
+    #         target_not_reachable = True
+    # if joint_1_angle < 10 or joint_1_angle > 70 or joint_2_angle < 0 or joint_2_angle > 180 or joint_3_angle < 0 or joint_3_angle > 198 or joint_4_angle < 0 or joint_4_angle > 180 or joint_5_angle < 0 or joint_5_angle > 180:
+    #    target_not_reachable = True
+    #    print("bounded by hardstop")
+    # print(joint_1_angle, joint_2_angle, joint_3_angle, joint_4_angle, joint_5_angle)
     if target_not_reachable is False:
         print("moving towards target... ")
+        # move_to_target(angles, servo_nums)
+        # for i, angle in enumerate(angles):
+        #    kit.servo[servo_nums[i]].angles = angle
     else:
         print("target not reachable")
 
